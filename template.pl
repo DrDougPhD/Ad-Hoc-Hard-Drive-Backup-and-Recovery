@@ -5,7 +5,7 @@ use warnings;
 use feature 'say';
 use autodie; # die if problem reading or writing a file
 use Getopt::Long qw(GetOptions);
-use File::Basename qw(basename);
+use File::Basename qw(basename fileparse);
 use Digest::MD5;
 
 
@@ -72,9 +72,15 @@ sub something {
 	say "New file checksum: $d1";
 
 	if ( $cs1->hexdigest eq $checksum->hexdigest ) {
-		say "Unequal checksums. Link new file using checksum.";
-	} else {
 		say "Checksums are equal! No new file to be linked.";
+	} else {
+		say "Unequal checksums. Link new file using checksum.";
+		my ($filename, $dirs, $suffix) = fileparse($old_file, '\..*');
+		say "filename: $filename";
+		say "dirs: $dirs";
+		say "suffix: $suffix";
+		my $new_filename = $dirs . $filename . "__" . $checksum->hexdigest . $suffix;
+		symlink( $new_file, $new_filename );
 	}
 }
 
