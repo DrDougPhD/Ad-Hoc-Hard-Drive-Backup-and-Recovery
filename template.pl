@@ -45,7 +45,7 @@ sub link_file {
 	my $destination_directory = $_[1];
 
 	my $destination = $destination_directory . (basename $abs_path);
-	say "Link from: $destination";
+	#say "Link from: $destination";
 
 	if ( -e $destination ) {
 		something($destination, $abs_path);
@@ -63,24 +63,21 @@ sub something {
 
 	my $checksum = Digest::MD5->new;
 	$checksum->addfile($old_fh);
-	my $digest=$checksum->hexdigest;
-	say "New file checksum: $digest";
 
 	my $cs1 = Digest::MD5->new;
 	$cs1->addfile($new_fh);
-	my $d1 = $cs1->hexdigest;
-	say "New file checksum: $d1";
 
 	if ( $cs1->hexdigest eq $checksum->hexdigest ) {
-		say "Checksums are equal! No new file to be linked.";
+		#say "Checksums are equal! No new file to be linked.";
 	} else {
-		say "Unequal checksums. Link new file using checksum.";
+		#say "Unequal checksums. Link new file using checksum.";
 		my ($filename, $dirs, $suffix) = fileparse($old_file, '\..*');
-		say "filename: $filename";
-		say "dirs: $dirs";
-		say "suffix: $suffix";
+		#say "filename: $filename";
+		#say "dirs: $dirs";
+		#say "suffix: $suffix";
 		my $new_filename = $dirs . $filename . "__" . $checksum->hexdigest . $suffix;
 		symlink( $new_file, $new_filename );
+		say "Collision avoided with file " . basename $new_filename;
 	}
 }
 
