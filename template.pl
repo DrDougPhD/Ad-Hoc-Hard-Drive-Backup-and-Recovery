@@ -26,9 +26,14 @@ open(my $fh, '<:encoding(UTF-8)', $file_list)
 
 while (my $row = <$fh>) {
 	chomp $row;
-	say $row;
+	my $abs_path = $files_in_dir . $row;
+	say "Absolute path: $abs_path";
+	if ( -e $abs_path ) {
+		say "File exists: $row";
+	} else {
+		say "No file exists: $row";
+	}
 }
-
 
 # openr() returns an IO::File object to read from
 #my $file_handle = $file->openr();
