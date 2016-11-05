@@ -24,6 +24,14 @@
 # ignored.
 sort --field-separator=$'\t' --key=2 --numeric-sort /dev/stdin
 
+# build associative array of bytes => [filepaths]
+# remove singletons - e.g. 123 -x-> ['/tmp/file.txt']
+#                          124 ---> ['/tmp/f1.txt', '/tmp/f2.txt']
+# for each mapping, compute the md5sums of the files
+# sort files within each mapping by file's age
+# obtain more info on files, including timestamps, owner/group, etc
+# output to file
+
 #awk -F"\t" '{print $1}' /dev/stdin
  
 #### stashed ####
