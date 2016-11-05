@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+#
+# Given a list of file urls, create symbolic links to them from within the current working directory.
+#
+# Note: this script has been superceded by create_local_links.pl.
+#
 ROOT="$2"
 while read URL; do
 	if [ ! -z "${URL// }" ]
