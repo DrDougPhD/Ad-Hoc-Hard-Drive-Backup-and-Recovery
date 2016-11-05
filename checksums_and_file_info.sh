@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 #
-# Iterate over all files stored within a directory, collecting their checksums
-# and other file information.
+# Intelligent checksums and duplicate detection. Iterate over all files,
+# collecting their checksums and other file information only for files that
+# share the same size. The motivation of this script is to put as little burden
+# on the hard drive(s) containing those files.
 #
 # Usage: <blah>.sh < files,sizes.txt > files,sizes,checksums.txt
 #
@@ -20,12 +22,10 @@
 # Assume the first column is the path of a file, and the second column is the
 # file's size in bytes. Columns are separated by tabs. All other columns are
 # ignored.
-while read line
-do
-  echo "$line"
-done < /dev/stdin
+sort --field-separator=$'\t' --key=2 --numeric-sort /dev/stdin
 
-
+#awk -F"\t" '{print $1}' /dev/stdin
+ 
 #### stashed ####
 #find $1 -type f -printf "%P\t%s\t%A@\t%C@\t%T@\n"
 # execute md5sum on each file found
