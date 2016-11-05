@@ -1,2 +1,6 @@
 #!/usr/bin/env bash
-find $1 -type f -printf "'$1/%P'\t%s\t%A@\t%C@\t%T@\n"
+
+# remove a dangling forward slash from directory
+DIRECTORY=$(echo "$1" | sed 's,/$,,g') 
+
+find "$DIRECTORY" -type f -printf "'${DIRECTORY}/%P'\t%s\t%A@\t%C@\t%T@\n"
