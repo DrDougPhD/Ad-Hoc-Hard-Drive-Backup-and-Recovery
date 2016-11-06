@@ -80,7 +80,6 @@ if __name__ == "__main__":
 			'mtime': numpy.float64
 		},
 		compression='infer',
-		quotechar="'"
 	)
 
 	# Only keep files that have filesizes equal to other files (potential
@@ -90,8 +89,19 @@ if __name__ == "__main__":
 
 	# Associate checksums with list of files
 	duplicates = defaultdict(list)
+	print("{0} begin md5sum format {0}".format('-'*20))
 	for i, row in same_sized_files.iterrows():
-		duplicates[checksum(row.url)].append(row)
+		try:
+			x = checksum(row.url)
+		except:
+			print("Error: file not found, skipping '{0}'".format(
+				row.url
+			), file=sys.stderr)
+		else:
+			print("{0}  {1}".format(x, row.url))
+			duplicates[x].append(row)
+
+	print("{0} end md5sum format {0}".format('-'*20))
 
 	# Prepare to write results out to a file
 	outfile_url = os.path.join(
