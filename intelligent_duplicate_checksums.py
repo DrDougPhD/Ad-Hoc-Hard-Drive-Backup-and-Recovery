@@ -45,20 +45,45 @@ if __name__ == "__main__":
 	all_file_info = pandas.read_csv(
 		filepath_or_buffer=sys.argv[1],
 		sep='\t',
-		names=['url', 'bytes', 't1', 't2', 't3'],
-		usecols=['url', 'bytes'],
-		dtype={'url': str, 'bytes': numpy.uint64},
+		names=['url', 'bytes', 'atime', 'ctime', 'mtime'],
+		#usecols=['url', 'bytes'],
+		dtype={
+			'url': str,
+			'bytes': numpy.uint64,
+			'atime': numpy.float64,
+			'ctime': numpy.float64,
+			'mtime': numpy.float64
+		},
 		compression='infer',
 		quotechar="'"
 	)
 	print("{0} raw files {0}".format('-'*20))
 	print(all_file_info)
 	print("{0} grouped by size {0}".format('-'*20))
+	print(all_file_info.groupby('bytes'))
+	print("{0} size groups {0}".format('-'*20))
 	print(all_file_info.groupby('bytes').groups)
 	print("{0} files w/ duplicate sizes {0}".format('-'*20))
 	same_sized_groups = all_file_info.groupby('bytes')\
 		.filter(lambda group: len(group) > 1)
 	print(same_sized_groups)
+
+	"""
+	# iterate over groups
+	for name, group in all_file_info.groupby('bytes'):
+		print(name)
+		print(type(group))
+		print(group)
+
+	print("{0} applymap to remaining elements {0}".format('-'*20))
+	print(all_file_info.groupby('bytes')\
+		.filter( lambda group: len(group) > 1 )\
+		.applymap( lambda x: "{0} v".format(x) ))
+
+	pandas.merge(left, right, how='inner', on=None, left_on=None, right_on=None,
+		left_index=False, right_index=False, sort=False,
+		suffixes=('_x', '_y'), copy=True, indicator=False)
+	"""
 
 	"""
 	groupby('bytes').fn()
