@@ -20,7 +20,7 @@ def get_arguments():
 	)
 	parser.add_argument('-v', '--verbose', action='store_true',
 		default=True, help='verbose output')
-	parser.add_argument('-d', '--directory',
+	parser.add_argument('-d', '--within-directory',
 		dest='within_directory',
 		default='.', type=Path,
 		help='path to directory in which to search for dupes',

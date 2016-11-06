@@ -40,11 +40,12 @@ import sys
 
 
 def main(args, logger):
-	logger.info("Beginning walk at '{dir_tree_root}'".format(
-		dir_tree_root=args.within_directory
+	root_directory = str(args.within_directory.resolve())
+	logger.info("Beginning walk at '{root_directory}'".format(
+		root_directory=root_directory
 	))
-	for dirpath, dirnames, filenames in os.walk(
-			args.within_directory, topdown=False, onerror=None):
+	for dirpath, dirnames, filenames in os.walk(root_directory,
+			topdown=False, onerror=None):
 		logger.debug('\t{dirpath}'.format(dirpath=dirpath))
 
 
