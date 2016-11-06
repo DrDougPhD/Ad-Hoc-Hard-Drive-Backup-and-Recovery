@@ -24,10 +24,20 @@ Copyright 2016 Doug McGeehan. All rights reserved.
 -------------------------------------------------------------------------------
 
 TODO:
+  Logging.
+  Checksum from Python library.
+  No dependency on previously-created file; walk directory instead, building
+    list of potential duplicates along the way and calculating hashes as
+    needed.
   Given a files containing urls and file sizes, only compute the md5sums
     of those files with matching sizes.
   Given two files containing urls and files sizes, only compute the md5sums
     of those files with matching sizes.
+  Command-line input: --min-file-size specifies a lower bound on filesizes,
+    above which a file will have its md5hash checked. Intuition is that small
+    files are more likely to be the same, especially if two operating systems
+    are backed up in the same hard drive (very similar files within each).
+  Command-line input: --dry-run?
 """
 
 import sys
@@ -36,19 +46,7 @@ import numpy
 import subprocess
 from collections import defaultdict
 import os
-
-import math
-
-
-def humanized_byte_size(size):
-	base = 1000
-	if (size == 0):
-		return '0B'
-	size_name = ("KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
-	i = int(math.floor(math.log(size, base)))
-	p = math.pow(base, i)
-	s = round(size/p, 2)
-	return "{0} {1}".format(s, size_name[i-1])
+import hurry.filesize
 
 
 """
@@ -80,6 +78,7 @@ if __name__ == "__main__":
 			'mtime': numpy.float64
 		},
 		compression='infer',
+		quotechar="'"
 	)
 
 	# Only keep files that have filesizes equal to other files (potential
@@ -129,5 +128,5 @@ if __name__ == "__main__":
 	print("Processing complete.")
 	print("Checksum files written to {0}".format(outfile_url))
 	print("Deduplication will save {0}.".format(
-		humanized_byte_size(space_savings)
+		hurry.filesize.size(space_savings, system=hurry.filesize.si)
 	))
