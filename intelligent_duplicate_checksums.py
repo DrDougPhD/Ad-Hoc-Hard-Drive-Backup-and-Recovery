@@ -26,6 +26,8 @@ Copyright 2016 Doug McGeehan. All rights reserved.
 TODO:
   Logging.
   Checksum from Python library.
+  Duplicates with highest space occupancy should be closer to the top.
+  Within duplicate groups, sort by timestamp in descending order.
   No dependency on previously-created file; walk directory instead, building
     list of potential duplicates along the way and calculating hashes as
     needed.
@@ -121,8 +123,12 @@ if __name__ == "__main__":
 			space_savings += group_space_savings
 
 			for r in files_with_checksum:
-				outfile.write("'{0}'\t{1}\t{2}\n".format(
-					r.url, r.bytes, x
+				humanized_bytesize = hurry.filesize.size(
+					r.bytes,
+					system=hurry.filesize.si
+				)
+				outfile.write("{0}\t{1}\t{2}\t{3}\n".format(
+					x, humanized_bytesize, r.url, r.bytes
 				))
 
 	print("Processing complete.")
