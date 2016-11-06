@@ -45,15 +45,19 @@ def humanized_byte_size(size):
 	if (size == 0):
 		return '0B'
 	size_name = ("KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
-	#print("size: {0}".format(size))
 	i = int(math.floor(math.log(size, base)))
-	#print("suffix: {0} ({1})".format(i, size_name[i-1]))
 	p = math.pow(base, i)
-	#print("size-approx: {0}".format(p))
 	s = round(size/p, 2)
-	#print("rounded-size: {0}".format(s))
-	#print("-"*40)
 	return "{0} {1}".format(s, size_name[i-1])
+
+
+"""
+Calculate a checksum for the specified file
+"""
+checksum = lambda path: subprocess.check_output(
+		['md5sum', path],
+		universal_newlines=True
+	).split()[0]
 
 
 if __name__ == "__main__":
@@ -79,48 +83,34 @@ if __name__ == "__main__":
 		quotechar="'"
 	)
 
-	print("{0} raw files {0}".format('-'*20))
-	print(all_file_info)
-
-
-	#all_file_info.merge(right, how='inner', on=None, left_on=None, right_on=None, left_index=False, right_index=False, sort=False, suffixes=('_x', '_y'), copy=True, indicator=False)
-
-	print("{0} size groups {0}".format('-'*20))
-	print(all_file_info.groupby('bytes').groups)
-
-	print("{0} files w/ duplicate sizes {0}".format('-'*20))
+	# Only keep files that have filesizes equal to other files (potential
+	# duplicates)
 	same_sized_files = all_file_info.groupby('bytes')\
 		.filter(lambda group: len(group) > 1)
 
-	print(same_sized_files)
-
-	print("{0} iterations {0}".format('-'*20))
-	checksum = lambda path: subprocess.check_output(
-			['md5sum', path],
-			universal_newlines=True
-		).split()[0]
-
+	# Associate checksums with list of files
 	duplicates = defaultdict(list)
 	for i, row in same_sized_files.iterrows():
 		duplicates[checksum(row.url)].append(row)
-	print(duplicates)
 
+	# Prepare to write results out to a file
 	outfile_url = os.path.join(
 		os.path.dirname(infile),
 		"duplicates.{0}".format(os.path.basename(infile))
 	)
+	# Calculate how much space would be saved if all duplicates were
+	# removed
 	space_savings = 0
 	with open(outfile_url, 'w') as outfile:
+		# Order the checksums by how many duplicate files exist with
+		# the checksum
 		for x in sorted(duplicates, key=lambda x: len(duplicates[x]),
 				reverse=True):
 			files_with_checksum = duplicates[x]
 			n = len(files_with_checksum)-1
-			print("{0} {1} {0}".format('-'*20, x))
-			print("number of dupes: {0}".format(n))
 			group_space_savings = n * files_with_checksum[0].bytes
-			print("group savings: {0}".format(group_space_savings))
 			space_savings += group_space_savings
-			print("total savings: {0}".format(space_savings))
+
 			for r in files_with_checksum:
 				outfile.write("'{0}'\t{1}\t{2}\n".format(
 					r.url, r.bytes, x
@@ -131,68 +121,3 @@ if __name__ == "__main__":
 	print("Deduplication will save {0}.".format(
 		humanized_byte_size(space_savings)
 	))
-
-	"""
-	min_times = same_sized_files.loc[:, ['atime', 'ctime', 'mtime']].min(
-		axis=1
-	)
-
-	same_sized_files.loc[:,"min_times"] = min_times
-	#same_sized_files.merge(min_times, copy=False)
-	#same_sized_files.loc[:, 'min_time'] = min_times
-
-	same_sized_files.loc[:,'md5'] = same_sized_files.loc[:, 'url'].map(
-		lambda path: subprocess.check_output(
-			['md5sum', path],
-			universal_newlines=True
-		).split()[0]
-	)
-
-	print(same_sized_files)
-
-	print("{0} grouping of checksums {0}".format('-'*20))
-	print(same_sized_files.groupby('md5').count())
-	"""
-
-	"""
-	print("{0} files w/ duplicate sizes {0}".format('-'*20))
-	all_file_info.groupby('bytes')\
-		.filter( lambda group: len(group) > 1 )\
-		.sort_values(
-			by=['bytes', 'min_time'],
-			ascending=[True],
-			inplace=True)\
-		.loc[:,'f'] = p.Series(np.random.randn(sLength), index=df1.index)
-
-	# iterate over groups
-	for name, group in all_file_info.groupby('bytes'):
-		print(name)
-		print(type(group))
-		print(group)
-
-	print("{0} applymap to remaining elements {0}".format('-'*20))
-	print(all_file_info.groupby('bytes')\
-		.filter( lambda group: len(group) > 1 )\
-		.applymap( lambda x: "{0} v".format(x) ))
-
-	pandas.merge(left, right, how='inner', on=None, left_on=None, right_on=None,
-		left_index=False, right_index=False, sort=False,
-		suffixes=('_x', '_y'), copy=True, indicator=False)
-	"""
-
-	"""
-	groupby('bytes').fn()
-	Splitting the data into groups based on some criteria
-	Applying a function to each group independently (if more than one, calc md5s; if one, delete)
-	Combining the results into a data structure
-	"""
-
-	"""
-	build associative array of bytes => [filepaths]
-	remove singletons - e.g. 123 -x-> ['/tmp/file.txt']
-        	                 124 ---> ['/tmp/f1.txt', '/tmp/f2.txt']
-	for each mapping, compute the md5sums of the files
-	sort files within each mapping by file's age
-	obtain more info on files, including timestamps, owner/group, etc
-	output to file
-	"""
