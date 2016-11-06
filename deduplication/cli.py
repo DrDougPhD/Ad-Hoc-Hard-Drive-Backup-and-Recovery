@@ -58,6 +58,7 @@ def get_arguments():
 		default=True, help='verbose output')
 	parser.add_argument('-d', '--directory',
 		dest='root_directory',
+		default='.',
 		help='path to directory in which to search for dupes',
 	)
 	parser.add_argument('-m', '--min-filesize-checksum',
@@ -102,4 +103,5 @@ def setup_logger(args):
 	logger.addHandler(fh)
 	logger.addHandler(ch)
 
-
+	# log command-line arguments
+	logger.info(args)
