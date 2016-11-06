@@ -33,7 +33,7 @@ TODO:
 import sys
 import pandas
 import numpy
-
+import subprocess
 
 if __name__ == "__main__":
 	"""
@@ -79,7 +79,12 @@ if __name__ == "__main__":
 	#same_sized_files.merge(min_times, copy=False)
 	#same_sized_files.loc[:, 'min_time'] = min_times
 
-	same_sized_files.loc[:,'md5'] = same_sized_files.loc[:, 'url'].map(lambda path: path.upper())
+	same_sized_files.loc[:,'md5'] = same_sized_files.loc[:, 'url'].map(
+		lambda path: subprocess.check_output(
+			['md5sum', path],
+			universal_newlines=True
+		).split()[0]
+	)
 
 	print(same_sized_files)
 
