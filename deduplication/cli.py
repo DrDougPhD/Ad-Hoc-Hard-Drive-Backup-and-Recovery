@@ -8,7 +8,7 @@ import config
 import argparse
 import utils
 import os
-
+from pathlib import Path
 import logging
 
 
@@ -22,7 +22,7 @@ def get_arguments():
 		default=True, help='verbose output')
 	parser.add_argument('-d', '--directory',
 		dest='within_directory',
-		default='.',
+		default='.', type=Path,
 		help='path to directory in which to search for dupes',
 	)
 	parser.add_argument('-m', '--min-filesize-checksum',
@@ -35,6 +35,11 @@ def get_arguments():
 		default=False,
 		help="don't compute checksums, just walk directory"
 	)
+	parser.add_argument('-l', '--log-directory',
+		dest='log_directory',
+		default='logs', type=Path,
+		help='path into which logs are saved',
+	)
 
 	return parser.parse_args()
 
@@ -44,10 +49,10 @@ def setup_logger(args):
 	logger.setLevel(logging.DEBUG)
 
 	# create file handler which logs even debug messages
-	utils.create_directory_safely(config.LOG_DIR)
-	fh = logging.FileHandler(
-		os.path.join(config.LOG_DIR, config.APP_NAME + ".log")
-	)
+	args.log_directory.mkdir(exist_ok=True)
+	fh = logging.FileHandler(str(
+		args.log_directory / (config.APP_NAME + '.log')
+	))
 
 	# create console handler with a higher log level
 	ch = logging.StreamHandler()
