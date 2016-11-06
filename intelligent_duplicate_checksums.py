@@ -34,6 +34,27 @@ import sys
 import pandas
 import numpy
 import subprocess
+from collections import defaultdict
+import os
+
+import math
+
+
+def humanized_byte_size(size):
+	base = 1000
+	if (size == 0):
+		return '0B'
+	size_name = ("KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+	#print("size: {0}".format(size))
+	i = int(math.floor(math.log(size, base)))
+	#print("suffix: {0} ({1})".format(i, size_name[i-1]))
+	p = math.pow(base, i)
+	#print("size-approx: {0}".format(p))
+	s = round(size/p, 2)
+	#print("rounded-size: {0}".format(s))
+	#print("-"*40)
+	return "{0} {1}".format(s, size_name[i-1])
+
 
 if __name__ == "__main__":
 	"""
@@ -42,10 +63,11 @@ if __name__ == "__main__":
 	file's size in bytes. Columns are separated by tabs. All other columns are
 	ignored.
 	"""
+	infile = sys.argv[1]
 	all_file_info = pandas.read_table(
-		filepath_or_buffer=sys.argv[1],
+		filepath_or_buffer=infile,
 		names=['url', 'bytes', 'atime', 'ctime', 'mtime'],
-		#usecols=['url', 'bytes'],
+		usecols=['url', 'bytes'],
 		dtype={
 			'url': str,
 			'bytes': numpy.uint64,
@@ -70,7 +92,47 @@ if __name__ == "__main__":
 	same_sized_files = all_file_info.groupby('bytes')\
 		.filter(lambda group: len(group) > 1)
 
-	print("{0} mintimes {0}".format('-'*20))
+	print(same_sized_files)
+
+	print("{0} iterations {0}".format('-'*20))
+	checksum = lambda path: subprocess.check_output(
+			['md5sum', path],
+			universal_newlines=True
+		).split()[0]
+
+	duplicates = defaultdict(list)
+	for i, row in same_sized_files.iterrows():
+		duplicates[checksum(row.url)].append(row)
+	print(duplicates)
+
+	outfile_url = os.path.join(
+		os.path.dirname(infile),
+		"duplicates.{0}".format(os.path.basename(infile))
+	)
+	space_savings = 0
+	with open(outfile_url, 'w') as outfile:
+		for x in sorted(duplicates, key=lambda x: len(duplicates[x]),
+				reverse=True):
+			files_with_checksum = duplicates[x]
+			n = len(files_with_checksum)-1
+			print("{0} {1} {0}".format('-'*20, x))
+			print("number of dupes: {0}".format(n))
+			group_space_savings = n * files_with_checksum[0].bytes
+			print("group savings: {0}".format(group_space_savings))
+			space_savings += group_space_savings
+			print("total savings: {0}".format(space_savings))
+			for r in files_with_checksum:
+				outfile.write("'{0}'\t{1}\t{2}\n".format(
+					r.url, r.bytes, x
+				))
+
+	print("Processing complete.")
+	print("Checksum files written to {0}".format(outfile_url))
+	print("Deduplication will save {0}.".format(
+		humanized_byte_size(space_savings)
+	))
+
+	"""
 	min_times = same_sized_files.loc[:, ['atime', 'ctime', 'mtime']].min(
 		axis=1
 	)
@@ -87,6 +149,10 @@ if __name__ == "__main__":
 	)
 
 	print(same_sized_files)
+
+	print("{0} grouping of checksums {0}".format('-'*20))
+	print(same_sized_files.groupby('md5').count())
+	"""
 
 	"""
 	print("{0} files w/ duplicate sizes {0}".format('-'*20))
