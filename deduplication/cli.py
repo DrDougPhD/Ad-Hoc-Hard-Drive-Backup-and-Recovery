@@ -1,51 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Command-line interface for application.
 """
 
-from datetime import datetime
-import sys
 import config
 import argparse
 import utils
 import os
 
 import logging
-logger = utils.get_descendant_logger(__name__)
-
-
-def run(driver):
-	"""
-	Main driver for code
-	"""
-	try:
-		start_time = datetime.now()
-
-		args = get_arguments()
-		setup_logger(args)
-		logger.debug(start_time)
-
-		driver(args)
-
-		finish_time = datetime.now()
-		logger.debug(finish_time)
-		logger.debug('Execution time: {time}'.format(
-			time=(finish_time - start_time)
-		))
-		logger.debug("#"*20 + " END EXECUTION " + "#"*20)
-
-		sys.exit(0)
-
-	except KeyboardInterrupt as e: # Ctrl-C
-		raise e
-
-	except SystemExit as e: # sys.exit()
-		raise e
-
-	except Exception as e:
-		logger.exception("Something happened and I don't know what to do D:")
-		sys.exit(1)
 
 
 def get_arguments():
@@ -57,7 +21,7 @@ def get_arguments():
 	parser.add_argument('-v', '--verbose', action='store_true',
 		default=True, help='verbose output')
 	parser.add_argument('-d', '--directory',
-		dest='root_directory',
+		dest='within_directory',
 		default='.',
 		help='path to directory in which to search for dupes',
 	)
@@ -76,6 +40,7 @@ def get_arguments():
 
 
 def setup_logger(args):
+	logger = logging.getLogger(config.APP_NAME)
 	logger.setLevel(logging.DEBUG)
 
 	# create file handler which logs even debug messages
@@ -83,13 +48,15 @@ def setup_logger(args):
 	fh = logging.FileHandler(
 		os.path.join(config.LOG_DIR, config.APP_NAME + ".log")
 	)
-	fh.setLevel(logging.DEBUG)
+
 	# create console handler with a higher log level
 	ch = logging.StreamHandler()
 
 	if args.verbose:
+		fh.setLevel(logging.DEBUG)
 		ch.setLevel(logging.DEBUG)
 	else:
+		fh.setLevel(logging.INFO)
 		ch.setLevel(logging.INFO)
 
 	# create formatter and add it to the handlers
@@ -103,5 +70,4 @@ def setup_logger(args):
 	logger.addHandler(fh)
 	logger.addHandler(ch)
 
-	# log command-line arguments
-	logger.info(args)
+	return logger
