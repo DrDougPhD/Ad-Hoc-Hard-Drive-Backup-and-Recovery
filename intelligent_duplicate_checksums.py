@@ -42,9 +42,8 @@ if __name__ == "__main__":
 	file's size in bytes. Columns are separated by tabs. All other columns are
 	ignored.
 	"""
-	all_file_info = pandas.read_csv(
+	all_file_info = pandas.read_table(
 		filepath_or_buffer=sys.argv[1],
-		sep='\t',
 		names=['url', 'bytes', 'atime', 'ctime', 'mtime'],
 		#usecols=['url', 'bytes'],
 		dtype={
@@ -57,18 +56,43 @@ if __name__ == "__main__":
 		compression='infer',
 		quotechar="'"
 	)
+
 	print("{0} raw files {0}".format('-'*20))
 	print(all_file_info)
-	print("{0} grouped by size {0}".format('-'*20))
-	print(all_file_info.groupby('bytes'))
+
+
+	#all_file_info.merge(right, how='inner', on=None, left_on=None, right_on=None, left_index=False, right_index=False, sort=False, suffixes=('_x', '_y'), copy=True, indicator=False)
+
 	print("{0} size groups {0}".format('-'*20))
 	print(all_file_info.groupby('bytes').groups)
+
 	print("{0} files w/ duplicate sizes {0}".format('-'*20))
-	same_sized_groups = all_file_info.groupby('bytes')\
+	same_sized_files = all_file_info.groupby('bytes')\
 		.filter(lambda group: len(group) > 1)
-	print(same_sized_groups)
+
+	print("{0} mintimes {0}".format('-'*20))
+	min_times = same_sized_files.loc[:, ['atime', 'ctime', 'mtime']].min(
+		axis=1
+	)
+
+	same_sized_files.loc[:,"min_times"] = min_times
+	#same_sized_files.merge(min_times, copy=False)
+	#same_sized_files.loc[:, 'min_time'] = min_times
+
+	same_sized_files.loc[:,'md5'] = same_sized_files.loc[:, 'url'].map(lambda path: path.upper())
+
+	print(same_sized_files)
 
 	"""
+	print("{0} files w/ duplicate sizes {0}".format('-'*20))
+	all_file_info.groupby('bytes')\
+		.filter( lambda group: len(group) > 1 )\
+		.sort_values(
+			by=['bytes', 'min_time'],
+			ascending=[True],
+			inplace=True)\
+		.loc[:,'f'] = p.Series(np.random.randn(sLength), index=df1.index)
+
 	# iterate over groups
 	for name, group in all_file_info.groupby('bytes'):
 		print(name)
