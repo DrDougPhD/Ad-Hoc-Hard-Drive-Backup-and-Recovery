@@ -39,6 +39,27 @@ import os
 import sys
 
 
+def process_files(dirpath, dirnames, filenames):
+	"""
+	Process each of the filenames.
+	Obtain their filesize, timestamps.
+	Add their filesizes into a dictionary associating bytesizes to
+	absolute file paths.
+	If one file was previously found with the bytesize as one of these
+	files, then compute the checksum for the previous file.
+		Append this file to the list.
+		Maybe that should trigger some checksum function automatically
+		if it sees the list now has more than 1 file?
+	Checksum creation is added to a dictionary associating checksums with
+	absolute file paths.
+	Each directory is augmented with the summed filesize of all files
+	stored within.
+		Also possibly the oldest file timestamp and newest file
+		timestamp.
+	"""
+	pass
+
+
 def main(args, logger):
 	root_directory = str(args.within_directory.resolve())
 	logger.info("Beginning walk at '{root_directory}'".format(
