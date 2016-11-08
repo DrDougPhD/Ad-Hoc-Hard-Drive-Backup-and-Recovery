@@ -8,14 +8,24 @@
 #		useful in determining how old the disc is and what kind of
 #		files may reside on it.
 #	Also, do the files have any usernames associated to them?
+#	For unmarked discs, prepend their current number to the beginning of
+#		their image file name
+#	Test that the user is permitted to create files, dirs, whatever for
+#		this script
+#	Make temporary name based on disc info so that, if prematurely
+#		cancelled, it can resume from where it stopped
 #
-USER_PROMPT="Enter CD name and press [ENTER]: "
 INFO_DIR="info"
 IMG_DIR="img"
 LOG_DIR="mapfiles"
 TMP_DIR=".tmp"
-SECONDARY_DST="/media/kp/AB58-B7AF/CD Backups"
+MNT_DIR="file_access"
+TMP_MOUNT_DIR="${TMP_DIR}/mnt"
+SECONDARY_DST="/media/kp/AB58-B7AF/CD Backups" #TODO: make general?
+FUTURE_MOUNTING_SCRIPT="${MNT_DIR}/mount_disc_images.sh"
 
+# constants assisting in detecting if the drive is open or not ready, or if
+# the disc is empty.
 EMPTY_DRIVE=0
 BLANK_DISC=2048
 
@@ -23,6 +33,8 @@ mkdir -p "${INFO_DIR}"
 mkdir -p "${IMG_DIR}"
 mkdir -p "${LOG_DIR}"
 mkdir -p "${TMP_DIR}"
+mkdir -p "${MNT_DIR}"
+mkdir -p "${TMP_MOUNT_DIR}"
 
 while : 
 do
@@ -51,46 +63,65 @@ do
 
 	# gather metadata and begin mirroring
 	temporary_name=$(uuidgen)
-	tmp_filename_prefix="${TMP_DIR}/${temporary_name}"
-	echo "Inserted disc is $(numfmt --to=si --suffix=B --format='%1f' ${disc_bytesize}) long!"
-	echo "Mirroring to begin, writing files to '${tmp_filename_prefix}.*'"
+	tmp_path="${TMP_DIR}/${temporary_name}"
+	mkdir -p "${tmp_path}"
+	echo "Inserted disc is $(numfmt --to=si --suffix=B --format='%1f' ${disc_bytesize}) long!" #TODO: wrap to next line
+	echo "Mirroring to begin, writing files into '${tmp_path}/'"
 
-	blkid /dev/sr0			>"${tmp_filename_prefix}.blkid.txt"
+	blkid /dev/sr0			>"${tmp_path}/blkid.txt"
 	udisksctl info --block-device /dev/sr0 \
-					>"${tmp_filename_prefix}.udisks.txt"
-	isoinfo -p -d -i /dev/sr0	>"${tmp_filename_prefix}.isoinfo.txt"
+					>"${tmp_path}/udisks.txt"
+	isoinfo -p -d -i /dev/sr0	>"${tmp_path}/isoinfo.txt" #TODO: will not work on DVDs, which use UDF I think.
 	ddrescue	--no-scrape \
 			--sector-size=2048				\
 			/dev/sr0					\
-			"${tmp_filename_prefix}.img" \
-			"${tmp_filename_prefix}.ddrescue.map"
-	eject /dev/sr0 & # copying might take a while, so don't allow eject to block
+			"${tmp_path}/img"				\
+			"${tmp_path}/ddrescue.map"
 
 	# test if anything was salvaged from disc
-	if [[ ! -s "${tmp_filename_prefix}.img" ]]
+	if [[ ! -s "${tmp_path}/img" ]]
 	then
 		echo "Nothing recovered from disc. Deleting files. Moving on to next disc."
 		echo "Store disc for later recovery efforts / trial on another CD drive."
+		rm -R "${tmp_path}"
+		echo "--------------------------------------------------------"
+		eject /dev/sr0
 	else
+		echo "------------------= copy files to secondary  =------------------"
+		# the image might be faulty, so mounting might fail
+		# don't do the other commands if it is faulty
+		#TODO: rsync might fail, which would prevent this stuff from happeneing...
+		mount -o loop,ro "${tmp_path}/img" "${TMP_MOUNT_DIR}" && \
+		rsync -rltzuv "${TMP_MOUNT_DIR}/" "${SECONDARY_DST}/${temporary_name}" && \
+		umount "${TMP_MOUNT_DIR}"
 
 		# request input from user
+		echo "Transfer complete!"
+		eject /dev/sr0 & # open the drive, but don't block rest of program
+		echo "-------------------= provide disc name =---------------------"
 		cd_name=""
 		while [[ -z "${cd_name// }" ]]
 		do
 			read -p "Enter text written on disc: " cd_name
 		done
 
-		mv "${tmp_filename_prefix}.blkid.txt"		"${INFO_DIR}/${cd_name}.blkid.txt"
-		mv "${tmp_filename_prefix}.udisks.txt"		"${INFO_DIR}/${cd_name}.udisks.txt"
-		mv "${tmp_filename_prefix}.isoinfo.txt"		"${INFO_DIR}/${cd_name}.isoinfo.txt"
-		mv "${tmp_filename_prefix}.img"			"${IMG_DIR}/${cd_name}.img"
-		mv "${tmp_filename_prefix}.ddrescue.log"	"${LOG_DIR}/${cd_name}.ddrescue.log"
+		# TODO perhaps there's a cleaner way to do this
+		mv "${tmp_path}/blkid.txt"	"${INFO_DIR}/${cd_name}.blkid.txt"
+		mv "${tmp_path}/udisks.txt"	"${INFO_DIR}/${cd_name}.udisks.txt"
+		mv "${tmp_path}/isoinfo.txt"	"${INFO_DIR}/${cd_name}.isoinfo.txt"
+		mv "${tmp_path}/img"		"${IMG_DIR}/${cd_name}.img"
+		mv "${tmp_path}/ddrescue.map"	"${LOG_DIR}/${cd_name}.ddrescue.map"
 
-		echo "------------------= copy files to secondary  =------------------"
-		mkdir -p ~/mirror_img
-		mount -o loop,ro "${IMG_DIR}/${cd_name}.img" ~/mirror_img && \
-		rsync -rltzuv ~/mirror_img/ "${SECONDARY_DST}/${cd_name}" && \
-		umount ~/mirror_img
+		# to aid in future exploring of files on these images, add their
+		# info to a script
+		mount_point="${MNT_DIR}/${cd_name}"
+		echo "mkdir -p '${mount_point}'"					>>"${FUTURE_MOUNTING_SCRIPT}"
+		echo "mount -o loop,ro '${IMG_DIR}/${cd_name}.img' '${mount_point}'"	>>"${FUTURE_MOUNTING_SCRIPT}"
+
+		# secondary storage files are still under the uuid directory
+		# move these to a directory with the provided name
+		mv "${SECONDARY_DST}/${temporary_name}" "${SECONDARY_DST}/${cd_name}"
+
 		echo "------------------= done done done done done =------------------"
 	fi
 done
