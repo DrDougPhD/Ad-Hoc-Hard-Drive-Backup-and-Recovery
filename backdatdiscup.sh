@@ -2,15 +2,17 @@
 #
 # TODO
 #	Detect if inserted disc is a music CD
-#	Continuously loop until disc is inserted and ready
-#	Detect when blank disc is inserted and notify user
-#	When image has been duplicated, mount image and copy files to secondary
-#		location.
+#	If user cancels, ask if they want to delete temporary files
+#	Pretty console output stuff, like centering and box symbols and shit
+#	Prefix final name of disc by a timestamp obtained from within the disc,
+#		useful in determining how old the disc is and what kind of
+#		files may reside on it.
+#	Also, do the files have any usernames associated to them?
 #
 USER_PROMPT="Enter CD name and press [ENTER]: "
 INFO_DIR="info"
 IMG_DIR="img"
-LOG_DIR="log"
+LOG_DIR="mapfiles"
 TMP_DIR=".tmp"
 SECONDARY_DST="/media/kp/AB58-B7AF/CD Backups"
 
@@ -26,16 +28,16 @@ while :
 do
 	# wait until disc is ready
 	echo "Please insert disc into drive."
-	cd_drive_size=$EMPTY_DRIVE
-	while [[ $cd_drive_size -le $BLANK_DISC ]]
+	disc_bytesize=$EMPTY_DRIVE
+	while [[ $disc_bytesize -le $BLANK_DISC ]]
 	do
 		echo -ne "."
-		cd_drive_size=$(udisksctl info --block-device /dev/sr0 | grep 'Size:' | awk -F' ' '{ print $2 }' -)
-		if	[[ $cd_drive_size -eq $EMPTY_DRIVE ]]
-		then
+		disc_bytesize=$(udisksctl info --block-device /dev/sr0 | grep 'Size:' | awk -F' ' '{ print $2 }' -)
+		if	[[ $disc_bytesize -eq $EMPTY_DRIVE ]]
+		then	# disc tray is still open, or has not spun up yet
 			sleep 1
-		elif	[[ $cd_drive_size -eq $BLANK_DISC ]]
-		then
+		elif	[[ $disc_bytesize -eq $BLANK_DISC  ]]
+		then	# a blank disc has been inserted, eject it and start again
 			echo
 			echo "Blank disc in drive. Ejecting."
 			echo "Please insert disc into drive."
@@ -50,6 +52,7 @@ do
 	# gather metadata and begin mirroring
 	temporary_name=$(uuidgen)
 	tmp_filename_prefix="${TMP_DIR}/${temporary_name}"
+	echo "Inserted disc is $(numfmt --to=si --suffix=B --format='%1f' ${disc_bytesize}) long!"
 	echo "Mirroring to begin, writing files to '${tmp_filename_prefix}.*'"
 
 	blkid /dev/sr0			>"${tmp_filename_prefix}.blkid.txt"
@@ -60,27 +63,34 @@ do
 			--sector-size=2048				\
 			/dev/sr0					\
 			"${tmp_filename_prefix}.img" \
-			"${tmp_filename_prefix}.ddrescue.log"
+			"${tmp_filename_prefix}.ddrescue.map"
 	eject /dev/sr0 & # copying might take a while, so don't allow eject to block
 
-	# request input from user
-	cd_name=""
-	while [[ -z "${cd_name// }" ]]
-	do
-		read -p "Enter text written on disc: " cd_name
-	done
+	# test if anything was salvaged from disc
+	if [[ ! -s "${tmp_filename_prefix}.img" ]]
+	then
+		echo "Nothing recovered from disc. Deleting files. Moving on to next disc."
+		echo "Store disc for later recovery efforts / trial on another CD drive."
+	else
 
-	mv "${tmp_filename_prefix}.blkid.txt"		"${INFO_DIR}/${cd_name}.blkid.txt"
-	mv "${tmp_filename_prefix}.udisks.txt"		"${INFO_DIR}/${cd_name}.udisks.txt"
-	mv "${tmp_filename_prefix}.isoinfo.txt"		"${INFO_DIR}/${cd_name}.isoinfo.txt"
-	mv "${tmp_filename_prefix}.img"			"${IMG_DIR}/${cd_name}.img"
-	mv "${tmp_filename_prefix}.ddrescue.log"	"${LOG_DIR}/${cd_name}.ddrescue.log"
+		# request input from user
+		cd_name=""
+		while [[ -z "${cd_name// }" ]]
+		do
+			read -p "Enter text written on disc: " cd_name
+		done
 
-	echo "------------------= copy files to secondary  =------------------"
-	mkdir -p ~/mirror_img
-	mount -o loop,ro "${IMG_DIR}/${cd_name}.img" ~/mirror_img && \
-	rsync -rltzuv ~/mirror_img/ "${SECONDARY_DST}/${cd_name}" && \
-	umount ~/mirror_img
+		mv "${tmp_filename_prefix}.blkid.txt"		"${INFO_DIR}/${cd_name}.blkid.txt"
+		mv "${tmp_filename_prefix}.udisks.txt"		"${INFO_DIR}/${cd_name}.udisks.txt"
+		mv "${tmp_filename_prefix}.isoinfo.txt"		"${INFO_DIR}/${cd_name}.isoinfo.txt"
+		mv "${tmp_filename_prefix}.img"			"${IMG_DIR}/${cd_name}.img"
+		mv "${tmp_filename_prefix}.ddrescue.log"	"${LOG_DIR}/${cd_name}.ddrescue.log"
 
-	echo "------------------= done done done done done =------------------"
+		echo "------------------= copy files to secondary  =------------------"
+		mkdir -p ~/mirror_img
+		mount -o loop,ro "${IMG_DIR}/${cd_name}.img" ~/mirror_img && \
+		rsync -rltzuv ~/mirror_img/ "${SECONDARY_DST}/${cd_name}" && \
+		umount ~/mirror_img
+		echo "------------------= done done done done done =------------------"
+	fi
 done
