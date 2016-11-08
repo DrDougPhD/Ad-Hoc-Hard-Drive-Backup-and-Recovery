@@ -11,6 +11,7 @@ USER_PROMPT="Enter CD name and press [ENTER]: "
 INFO_DIR="info"
 IMG_DIR="img"
 LOG_DIR="log"
+TMP_DIR=".tmp"
 SECONDARY_DST="/media/kp/AB58-B7AF/CD Backups"
 
 EMPTY_DRIVE=0
@@ -19,19 +20,12 @@ BLANK_DISC=2048
 mkdir -p "${INFO_DIR}"
 mkdir -p "${IMG_DIR}"
 mkdir -p "${LOG_DIR}"
+mkdir -p "${TMP_DIR}"
 
-echo -n "${USER_PROMPT}"
-
-while read cd_name
+while : 
 do
-	# check if nothing was input
-	if [[ -z "${cd_name// }" ]]
-	then
-		exit
-	fi
-
 	# wait until disc is ready
-	echo "Waiting for disc"
+	echo "Please insert disc into drive."
 	cd_drive_size=$EMPTY_DRIVE
 	while [[ $cd_drive_size -le $BLANK_DISC ]]
 	do
@@ -44,26 +38,44 @@ do
 		then
 			echo
 			echo "Blank disc in drive. Ejecting."
+			echo "Please insert disc into drive."
 			eject /dev/sr0
 			sleep 1
 			cd_drive_size=$EMPTY_DRIVE
 		else
 			echo
-			echo "Disc found! Begin mirroring."
 		fi
 	done
 
 	# gather metadata and begin mirroring
-	blkid /dev/sr0			>"${INFO_DIR}/${cd_name}.blkid.txt"
+	temporary_name=$(uuidgen)
+	tmp_filename_prefix="${TMP_DIR}/${temporary_name}"
+	echo "Mirroring to begin, writing files to '${tmp_filename_prefix}.*'"
+
+	blkid /dev/sr0			>"${tmp_filename_prefix}.blkid.txt"
 	udisksctl info --block-device /dev/sr0 \
-					>"${INFO_DIR}/${cd_name}.udisks.txt"
-	isoinfo -p -d -i /dev/sr0	>"${INFO_DIR}/${cd_name}.isoinfo.txt"
+					>"${tmp_filename_prefix}.udisks.txt"
+	isoinfo -p -d -i /dev/sr0	>"${tmp_filename_prefix}.isoinfo.txt"
 	ddrescue	--no-scrape \
 			--sector-size=2048				\
 			/dev/sr0					\
-			"${IMG_DIR}/${cd_name}.img" \
-			"${LOG_DIR}/${cd_name}.ddrescue.log"
+			"${tmp_filename_prefix}.img" \
+			"${tmp_filename_prefix}.ddrescue.log"
 	eject /dev/sr0 & # copying might take a while, so don't allow eject to block
+
+	# request input from user
+	cd_name=""
+	while [[ -z "${cd_name// }" ]]
+	do
+		read -p "Enter text written on disc: " cd_name
+	done
+
+	mv "${tmp_filename_prefix}.blkid.txt"		"${INFO_DIR}/${cd_name}.blkid.txt"
+	mv "${tmp_filename_prefix}.udisks.txt"		"${INFO_DIR}/${cd_name}.udisks.txt"
+	mv "${tmp_filename_prefix}.isoinfo.txt"		"${INFO_DIR}/${cd_name}.isoinfo.txt"
+	mv "${tmp_filename_prefix}.img"			"${IMG_DIR}/${cd_name}.img"
+	mv "${tmp_filename_prefix}.ddrescue.log"	"${LOG_DIR}/${cd_name}.ddrescue.log"
+
 	echo "------------------= copy files to secondary  =------------------"
 	mkdir -p ~/mirror_img
 	mount -o loop,ro "${IMG_DIR}/${cd_name}.img" ~/mirror_img && \
@@ -71,5 +83,4 @@ do
 	umount ~/mirror_img
 
 	echo "------------------= done done done done done =------------------"
-	echo -n "${USER_PROMPT} "
-done < "${1:-/dev/stdin}"
+done
