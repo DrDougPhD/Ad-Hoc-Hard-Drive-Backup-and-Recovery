@@ -59,15 +59,15 @@ do
 					>"${INFO_DIR}/${cd_name}.udisks.txt"
 	isoinfo -p -d -i /dev/sr0	>"${INFO_DIR}/${cd_name}.isoinfo.txt"
 	ddrescue	--no-scrape \
-			--sector-size=2048 \
+			--sector-size=2048				\
 			/dev/sr0					\
 			"${IMG_DIR}/${cd_name}.img" \
 			"${LOG_DIR}/${cd_name}.ddrescue.log"
-	eject /dev/sr0
+	eject /dev/sr0 & # copying might take a while, so don't allow eject to block
 	echo "------------------= copy files to secondary  =------------------"
 	mkdir -p ~/mirror_img
-	mount -o loop,ro "${IMG_DIR}/${cd_name}.img" ~/mirror_img
-	rsync -rltzuvP ~/mirror_img/ "${SECONDARY_DST}/${cd_name}"
+	mount -o loop,ro "${IMG_DIR}/${cd_name}.img" ~/mirror_img && \
+	rsync -rltzuv ~/mirror_img/ "${SECONDARY_DST}/${cd_name}" && \
 	umount ~/mirror_img
 
 	echo "------------------= done done done done done =------------------"
