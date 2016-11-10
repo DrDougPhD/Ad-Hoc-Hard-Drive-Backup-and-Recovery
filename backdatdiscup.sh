@@ -98,7 +98,6 @@ do
 		# request input from user
 		echo "Transfer complete!"
 		eject /dev/sr0 & # open the drive, but don't block rest of program
-		echo "-------------------= provide disc name =---------------------"
 		cd_name=""
 		while [[ -z "${cd_name// }" ]]
 		do
