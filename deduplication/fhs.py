@@ -24,12 +24,52 @@ def main():
 	file = File.within(directory)('file.1')
 	print(file)
 
+def lazy(method):
+	"""
+	Object methods decoraged by this decorator until an @eagor decorated
+	method is called.
+	"""
+	eager_key = 'eager'
+	def queuer(self, *args, **kwargs):
+		if not hasattr(self, '_lazy_queue'):
+			self._lazy_queue = []
 
-def lazy(fn):
-	def loader(self, *args, **kwargs):
-		self._load()
-		return fn(self, *args, **kwargs)
-	return loader
+		if eager_key in kwargs and kwargs[eager_key]:
+			# if method was called eagerly, then execute it now
+			# does not consider queue of methods to execute
+			#return method(self, *args, **kwargs)
+			print("Eager loading of lazy method: {method_name}".format(
+				method_name=method.__name__
+			))
+
+		else:	# method will be queued for later execution
+			print("Lazy loading of lazy method: {method_name}".format(
+				method_name=method.__name__
+			))
+			if not hasattr(self, '_lazy_queue'):
+				self._lazy_queue = []
+			self._lazy_queue.append((method, args, kwargs))
+	return queuer
+
+
+def eager(method):
+	"""
+	Object methods decorated by this decorator triggers the execution of
+	all lazy methods queued up prior.
+	"""
+	def resolve(queue, obj):
+		for method, args, kwargs in queue:
+			method(obj, *args, **kwargs)
+
+	def evaluator(self, *args, **kwargs):
+		print(thematic_break(char="~"))
+		print("Eager evaluation started on method: {method_name}".format(
+			method_name=method.__name__
+		))
+		if hasattr(self, '_lazy_queue') and self._lazy_queue:
+			resolve(queue=self._lazy_queue, obj=self)
+		return method(self, *args, **kwargs)
+	return evaluator
 
 
 class File:
@@ -37,6 +77,9 @@ class File:
 
 	@staticmethod
 	def within(directory):
+		print("Walking through files within '{directory}'".format(
+			directory=directory
+		))
 		blank_file_within_directory = File(directory)
 		def build_from_filename(filename):
 			return blank_file_within_directory/filename
@@ -104,17 +147,23 @@ class FileBundle:
 
 
 class FileBundles:
+	@lazy
 	def __init__(self, within, key):
 		"""
 		Recursively walk through all files stored within the specified
 		root directory and bundle them together based on the output
 		of a specified function.
 		"""
+		print("...(actually executing: FileBundles.__init__)...")
 		self.within = within
 		self.bundle_key = key
 		self.file_bundles = []
-		self.files = []
 
+		within_path = str(within)
+		for directory, _, files in os.walk(str(within), topdown=False):
+			self.files = map(File.within(directory), files)
+
+	@lazy
 	def filter(self, function):
 		return self
 
@@ -140,12 +189,7 @@ class FileBundles:
 
 	"""
 
-	def _load(self):
-		within_path = str(self.within)
-		for directory, _, files in os.walk(within_path, topdown=False):
-			self.files.extend(map(File.within(directory), files))
-
-	@lazy
+	@eager
 	def __str__(self):
 		return pprint.pformat(self.files)
 
@@ -188,7 +232,6 @@ if __name__ == "__main__":
 	print(files)
 	print(thematic_break())
 
-	"""
 	print(thematic_break(title="STAGE 2", char="="))
 	print(thematic_break(title="remove singleton file bundles"))
 	only_multifile_bundles = lambda bundle: 1 < len(bundle)
@@ -197,6 +240,7 @@ if __name__ == "__main__":
 	print(potential_duplicates)
 	print(thematic_break())
 
+	"""
 	print(thematic_break(title="STAGE 3", char="="))
 	print(thematic_break(title="compute file hashes", char="-"))
 	hashed_files = FileBundler(
