@@ -11,6 +11,7 @@ import os.path
 import hashlib
 import math
 from datetime import datetime
+import pprint
 
 
 NOW = datetime.now()
@@ -36,7 +37,10 @@ class File:
 		return build_from_filename
 
 	def __init__(self, path):
-		self.path = path
+		if isinstance(path, str):
+			self.path = Path(path)
+		else:
+			self.path = path
 
 	def age(self):
 		mtime = datetime.fromtimestamp(self.stat().st_mtime)
@@ -73,7 +77,7 @@ class File:
 		self.path = key/self.path
 		return self
 
-	def __str__(self):
+	def __repr__(self):
 		return str(self.path)
 
 
@@ -132,9 +136,9 @@ class FileBundles:
 			self.files.extend(map(File.within(directory), files))
 
 	def __str__(self):
-		if self.file_bundles.empty():
+		if not self.file_bundles:
 			self._load()
-		return self
+		return pprint.pformat(self.files)
 
 def thematic_break(title=None, char='-', width=80):
 	#TODO: if len("- " + title + " -") > width, then split in half nicely
@@ -161,9 +165,7 @@ def thematic_break(title=None, char='-', width=80):
 
 
 if __name__ == "__main__":
-	main()
-	"""
-	print("Testing the fhs module")
+	#main()
 
 	print(thematic_break(title="STAGE 1", char="="))
 	print(thematic_break(title="file system walking", char="-"))
@@ -176,6 +178,7 @@ if __name__ == "__main__":
 	print(files)
 	print(thematic_break())
 
+	"""
 	print(thematic_break(title="STAGE 2", char="="))
 	print(thematic_break(title="remove singleton file bundles"))
 	only_multifile_bundles = lambda bundle: 1 < len(bundle)
