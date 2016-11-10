@@ -24,6 +24,7 @@ def main():
 	file = File.within(directory)('file.1')
 	print(file)
 
+from collections import deque
 def lazy(method):
 	"""
 	Object methods decoraged by this decorator until an @eagor decorated
@@ -32,7 +33,7 @@ def lazy(method):
 	eager_key = 'eager'
 	def queuer(self, *args, **kwargs):
 		if not hasattr(self, '_lazy_queue'):
-			self._lazy_queue = []
+			self._lazy_queue = deque()
 
 		if eager_key in kwargs and kwargs[eager_key]:
 			# if method was called eagerly, then execute it now
@@ -58,7 +59,8 @@ def eager(method):
 	all lazy methods queued up prior.
 	"""
 	def resolve(queue, obj):
-		for method, args, kwargs in queue:
+		while queue:
+			method, args, kwargs = queue.popleft()
 			method(obj, *args, **kwargs)
 
 	def evaluator(self, *args, **kwargs):
