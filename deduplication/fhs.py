@@ -25,6 +25,13 @@ def main():
 	print(file)
 
 
+def lazy(fn):
+	def loader(self, *args, **kwargs):
+		self._load()
+		return fn(self, *args, **kwargs)
+	return loader
+
+
 class File:
 	BLOCKSIZE=_4MiB
 
@@ -68,6 +75,9 @@ class File:
 				hasher.update(block)
 
 		return hasher.hexdigest()
+
+	def _load(self):
+		pass
 
 	def __truediv__(self, key):
 		self.path = self.path/key
@@ -135,10 +145,10 @@ class FileBundles:
 		for directory, _, files in os.walk(within_path, topdown=False):
 			self.files.extend(map(File.within(directory), files))
 
+	@lazy
 	def __str__(self):
-		if not self.file_bundles:
-			self._load()
 		return pprint.pformat(self.files)
+
 
 def thematic_break(title=None, char='-', width=80):
 	#TODO: if len("- " + title + " -") > width, then split in half nicely
