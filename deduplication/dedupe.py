@@ -37,6 +37,10 @@ import config
 import cli
 import os
 import sys
+from pathlib import Path
+from collections import defaultdict
+from collections import UserList
+from pprint import pprint
 
 
 def process_files(dirpath, dirnames, filenames):
@@ -61,13 +65,33 @@ def process_files(dirpath, dirnames, filenames):
 
 
 def main(args, logger):
+	# Stage 1: Fast file awareness
 	root_directory = str(args.within_directory.resolve())
+	size2file_dict = defaultdict(list)
 	logger.info("Beginning walk at '{root_directory}'".format(
 		root_directory=root_directory
 	))
 	for dirpath, dirnames, filenames in os.walk(root_directory,
 			topdown=False, onerror=None):
-		logger.debug('\t{dirpath}'.format(dirpath=dirpath))
+		logger.debug('{dirpath}'.format(dirpath=dirpath))
+		directory = Path(dirpath)
+		for f in filenames:
+			file_path = directory / f
+			file_bytesize = os.path.getsize(str(file_path))
+			logger.debug('\t{filename} ({bytesize} bytes)'.format(
+				filename=f, bytesize=file_bytesize
+			))
+			size2file_dict[file_bytesize].append(file_path) # TODO: instead of storing the entire path, instead let this become a file tree. Perhaps there's a datatype for that already in existence.
+	pprint(size2file_dict)
+
+	# Stage 2: Fast possible-duplicate file identification through bytesizes
+	logger.info("Identifying potential duplicate files based on common file bytesizes")
+	for size in size2file_dict:
+		same_sized_files = size2file_dict[size]
+		logger.debug("{file_count}\t{same_sized_files}".format(
+			file_count=len(same_sized_files),
+			same_sized_files=same_sized_files
+		))
 
 
 if __name__ == '__main__':
