@@ -59,9 +59,9 @@ def eager(method):
 	all lazy methods queued up prior.
 	"""
 	def resolve(queue, obj):
-		while queue:
-			method, args, kwargs = queue.popleft()
+		for method, args, kwargs in queue:
 			method(obj, *args, **kwargs)
+		queue.clear()
 
 	def evaluator(self, *args, **kwargs):
 		print(thematic_break(char="~"))
