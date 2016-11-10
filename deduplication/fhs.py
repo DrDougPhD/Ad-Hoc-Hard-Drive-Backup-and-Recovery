@@ -71,6 +71,17 @@ def eager(method):
 		return method(self, *args, **kwargs)
 	return evaluator
 
+def cascade(method):
+	"""
+	Decorator for non-invasively implementing the Method cascading pattern.
+	Read more: https://en.wikipedia.org/wiki/Method_chaining
+	"""
+	def calling_object_returner(self, *args, **kwargs):
+		method(self, *args, **kwargs)
+		return self
+
+	return calling_object_returner
+
 
 class File:
 	BLOCKSIZE=_4MiB
@@ -163,6 +174,7 @@ class FileBundles:
 		for directory, _, files in os.walk(str(within), topdown=False):
 			self.files = map(File.within(directory), files)
 
+	@cascade
 	@lazy
 	def filter(self, function):
 		return self
