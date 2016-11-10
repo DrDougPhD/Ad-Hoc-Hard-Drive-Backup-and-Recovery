@@ -10,19 +10,96 @@ from pathlib import Path
 import os.path
 import hashlib
 import math
+from datetime import datetime
 
 
+NOW = datetime.now()
 _4MiB = 4*(1024**2)
 
 
-class FileBundler:
+def main():
+	_ = Path('/')
+	directory = _/'tmp'/'dupes'
+	file = File.within(directory)('file.1')
+	print(file)
+
+
+class File:
+	BLOCKSIZE=_4MiB
+
+	@staticmethod
+	def within(directory):
+		blank_file_within_directory = File(directory)
+		def build_from_filename(filename):
+			return blank_file_within_directory/filename
+
+		return build_from_filename
+
+	def __init__(self, path):
+		self.path = path
+
+	def age(self):
+		mtime = datetime.fromtimestamp(self.stat().st_mtime)
+		age = NOW - mtime
+		return str(age)
+
+	def __len__(self):
+		return self.stat().st_size
+
+	def truncated_path(self):
+		return str(self)
+
+	def __hash__(self):
+		assert self.exists(), "File not found - '{file_path}'".format(
+			file_path=self)
+		assert self.is_file(), "Not a file - '{file_path}'".format(
+			file_path=self)
+		hasher = hashlib.md5()
+
+		with open(str(file_path), 'rb') as file:
+			while True:
+				block = file.read(File.BLOCKSIZE)
+				if len(block)==0:
+					break
+				hasher.update(block)
+
+		return hasher.hexdigest()
+
+	def __truediv__(self, key):
+		self.path = self.path/key
+		return self
+
+	def __rtruediv__(self, key):
+		self.path = key/self.path
+		return self
+
+	def __str__(self):
+		return str(self.path)
+
+
+class FileBundle:
+	def __init__(self):
+		pass
+
+	def oldest(self):
+		pass
+
+	def __iter__(self):
+		for file in self.bundle:
+			yield file
+
+
+class FileBundles:
 	def __init__(self, within, key):
 		"""
 		Recursively walk through all files stored within the specified
 		root directory and bundle them together based on the output
 		of a specified function.
 		"""
+		self.within = within
+		self.bundle_key = key
 		self.file_bundles = []
+		self.files = []
 
 	def filter(self, function):
 		return self
@@ -33,30 +110,31 @@ class FileBundler:
 	def overhead(self):
 		pass
 
+	def __radd__(self, other):
+		if other == 0:
+			return self
+		else:
+			return self.__add__(other)
+
+	def __add__(self, other):
+		pass
+
 	"""
 	def __iter__(self):
 		for bundle in self.file_bundles:
 			yield bundle
 
-	def __str__(self):
-		return self
 	"""
 
+	def _load(self):
+		within_path = str(self.within)
+		for directory, _, files in os.walk(within_path, topdown=False):
+			self.files.extend(map(File.within(directory), files))
 
-def filehasher(file_path, block_size=_4MiB):
-	assert file_path.exists(), "File not found - '{file_path}'".format(file_path=file_path)
-	file_path = str(file_path)
-	hasher = hashlib.md5()
-
-	with open(file_path, 'rb') as file:
-		while True:
-			block = file.read(block_size)
-			if len(block)==0:
-				break
-			hasher.update(block)
-
-	return hasher.hexdigest()
-
+	def __str__(self):
+		if self.file_bundles.empty():
+			self._load()
+		return self
 
 def thematic_break(title=None, char='-', width=80):
 	#TODO: if len("- " + title + " -") > width, then split in half nicely
@@ -83,13 +161,15 @@ def thematic_break(title=None, char='-', width=80):
 
 
 if __name__ == "__main__":
+	main()
+	"""
 	print("Testing the fhs module")
 
 	print(thematic_break(title="STAGE 1", char="="))
 	print(thematic_break(title="file system walking", char="-"))
 	_ = Path('/')
 	directory = _/'tmp'/'dupes'
-	files = FileBundler(
+	files = FileBundles(
 		within=directory,
 		key=os.path.getsize
 	)
@@ -127,15 +207,18 @@ if __name__ == "__main__":
 	))
 	size_reduction_from_pruning = lambda bundle: bundle
 	sorted_bundles_of_duplicate_file = sorted(
-		duplicate_files, key=redundancy_overhead, reversed=True
+		duplicate_files,
+		key=size_reduction_from_pruning,
+		reversed=True
 	)
-	print(sorted_dupes)
+	print(sorted_bundles_of_duplicate_file)
 	print(thematic_break())
 
 	print(thematic_break(title="STAGE 6", char="="))
 	print(thematic_break(title="sort by file age within each bundle"))
-	sort_bundle_by_file_age = lambda bundle: sorted(bundle, key=blah)
-
+	sort_bundle_by_file_age = lambda bundle: sorted(
+		bundle, key=lambda file: file.stat().st_mtime
+	)
 	further_sorted_by_file_age = map(
 		sort_bundle_by_file_age,
 		sorted_bundles_of_duplicate_files,
@@ -145,9 +228,8 @@ if __name__ == "__main__":
 
 	#--- list files to delete?
 	# #original :=> size, age, truncated_url, 3 duplicate copies
+	cum_size_reduction_if_deleted = 0
 	for bundle in further_sorted_by_file_age:
-		print(bundle.summary())
-
 		for file in bundle:
 			if file == bundle.oldest():
 				print("# original :=> {truncated_url} ({size}, {age}), {n} duplicate copies".format(
@@ -157,13 +239,14 @@ if __name__ == "__main__":
 					n=len(bundle)-1
 				))
 			else:
+				cum_size_reduction_if_deleted += file
 				print("{truncated_url}\t{size}\t{age}\t{space_recovered}",
 					space_recovered=cum_size_reduction_if_deleted,
 					size=len(file),
 					age=file.age(),
 					truncated_url=file.truncate_url()
 				)
-
+	"""
 	# cumulative_size, age, truncated_url
 #hash(obj)
 
