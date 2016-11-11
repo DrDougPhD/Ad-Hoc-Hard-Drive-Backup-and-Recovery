@@ -14,10 +14,6 @@ def truncate_url(path, to_length=70):
 		path_parts = path_parts[1:]
 		dirname = '.../' + '/'.join(path_parts) + '/'
 	truncated_path = dirname + filename
-	print('{path}\t{n} chars long'.format(
-		path=truncated_path,
-		n=len(truncated_path)
-	))
 	return truncated_path
 
 with open(sys.argv[1]) as f:
@@ -41,18 +37,33 @@ with open(sys.argv[1]) as f:
 
 	redundant_files.sort(key=lambda group: group['savings_if_deduped'], reverse=True)
 	large_enough_savings = lambda grp: grp['savings_if_deduped'] > SIZE_THRESHOLD
+
+	# summarize the files that would be deleted, along with how much space
+	# is reclaimed by deleting all files above that line
 	running_total_savings = 0
+	print('#'*80)
+	print("# {path:^69}  {savings:^5} #".format(path="Files to delete (truncated paths)", savings="Size"))
 	for duplicate_group in filter(large_enough_savings, redundant_files):
 		files_to_delete = duplicate_group['files'][1:]
 		for file in files_to_delete:
 			running_total_savings += duplicate_group['file_size']
-			print(humanize.naturalsize(
-				running_total_savings,
-				gnu=True
-			))
-			print("{path:>70}\t{running_total_savings:<5}".format(
-				path=truncate_url(file, to_length=70),
+			print("# {path:>69}  {running_total_savings:>5} #".format(
+				path=truncate_url(file, to_length=69),
 				running_total_savings=humanize.naturalsize(
 					running_total_savings,
 					gnu=True
 			)))
+	print('#'*80)
+
+	# create shell commands to perform deletion
+	for duplicate_group in filter(large_enough_savings, redundant_files):
+		original_file = duplicate_group['files'][0]
+		print("#"*40 + " Original: '{}'".format(original_file))
+		files_to_delete = duplicate_group['files'][1:]
+		for file in files_to_delete:
+			print("rm '{}'".format(file))
+			print("ln -s '{original_file}' '{deleted_file_path}'".format(
+				original_file=original_file,
+				deleted_file_path=file,
+			))
+
