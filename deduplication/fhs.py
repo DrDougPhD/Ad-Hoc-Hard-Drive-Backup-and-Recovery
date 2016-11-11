@@ -238,10 +238,14 @@ class FileBundles:
 		print("Partitioning bundles")
 		print([str(b) for b in self.file_bundles])
 		for bundle in self.file_bundles:
+			partitioned_bundle = defaultdict(list)
 			print("--- {bundle}".format(bundle=bundle))
 			for file in bundle:
 				print("\t{filehash}\t{file}".format(filehash=by(file), file=file))
 				refined_bundles[by(file)].append(file)
+				partitioned_bundle[by(file)].append(file)
+			print("--- new bundles")
+			pprint.pprint(partitioned_bundle)
 		self.file_bundles = refined_bundles.values()
 
 	def __lt__(self, other):
@@ -348,15 +352,17 @@ if __name__ == "__main__":
 	print(hashed_files)
 	print(thematic_break())
 
-
-	"""
 	print(thematic_break(title="STAGE 4", char="="))
 	print(thematic_break(title="focus on files with duplicate copies"))
+	print("before:")
+	pprint.pprint(hashed_files)
 	duplicate_files = hashed_files.filter(only_multifile_bundles)
-	print(duplicate_files)
+	print("after:")
+	pprint.pprint(duplicate_files)
 	print(thematic_break())
 	#print(filehasher(file_path=directory/'file.1'))
 
+	"""
 	print(thematic_break(title="STAGE 5", char="="))
 	print(thematic_break(
 		title="sort bundles by size reduction through pruning",
