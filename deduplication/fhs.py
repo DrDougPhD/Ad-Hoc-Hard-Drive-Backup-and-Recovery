@@ -120,6 +120,12 @@ class File:
 		else:
 			self.path = path
 
+	def birth(self):
+		#TODO: make a decorator out of this pattern
+		if not hasattr(self, '_birth'):
+			self._birth = self.path.stat().st_mtime
+		return self._birth
+
 	def age(self):
 		mtime = datetime.fromtimestamp(self.stat().st_mtime)
 		age = NOW - mtime
@@ -192,18 +198,6 @@ class File:
 
 	def is_file(self):
 		return self.path.is_file()
-
-
-class FileBundle:
-	def __init__(self):
-		pass
-
-	def oldest(self):
-		pass
-
-	def __iter__(self):
-		for file in self.bundle:
-			yield file
 
 
 class FileBundles:
@@ -283,6 +277,10 @@ class FileBundles:
 		self.file_bundles = sorted(
 			self.file_bundles, key=key, reverse=reverse
 		)
+
+	@cascade
+	def apply(self, fn):
+		map(fn, self)
 
 	def __lt__(self, other):
 		return len(self) < len(other)
@@ -398,36 +396,48 @@ if __name__ == "__main__":
 		print(thematic_break(title="size: {0}".format(n)))
 		return n
 
-	sorted_bundles_of_duplicate_file = duplicate_files.sort(
+	sorted_bundles_of_duplicate_files = duplicate_files.sort(
 		key=size_reduction_from_pruning,
 		reverse=True
 	)
 	"""
-	sorted_bundles_of_duplicate_file = sorted(
+	sorted_bundles_of_duplicate_files = sorted(
 		duplicate_files,
 		key=size_reduction_from_pruning,
 		reversed=True
 	)
 	"""
 	pprint.pprint([(n, b) for n, b in zip(
-		map(size_reduction_from_pruning, sorted_bundles_of_duplicate_file),
-		sorted_bundles_of_duplicate_file
+		map(size_reduction_from_pruning, sorted_bundles_of_duplicate_files),
+		sorted_bundles_of_duplicate_files
 	)])
 	print(thematic_break())
 
-	"""
 	print(thematic_break(title="STAGE 6", char="="))
 	print(thematic_break(title="sort by file age within each bundle"))
 	sort_bundle_by_file_age = lambda bundle: sorted(
 		bundle, key=lambda file: file.stat().st_mtime
 	)
+	sort_by_descending_age = lambda bundle: bundle.sort(
+		key=getattr(bundle, 'birth')
+	)
+	further_sorted_by_file_age = sorted_bundles_of_duplicate_files.apply(
+		fn=sort_by_descending_age
+	)
+	"""
 	further_sorted_by_file_age = map(
 		sort_bundle_by_file_age,
 		sorted_bundles_of_duplicate_files,
 	)
-	print(sorted_dupes)
+	"""
+	print("done sorting by age")
+	for b in further_sorted_by_file_age:
+		print("."*10 + " bundle")
+		for f in b:
+			print((f.birth(), f))
 	print(thematic_break())
 
+	"""
 	#--- list files to delete?
 	# #original :=> size, age, truncated_url, 3 duplicate copies
 	cum_size_reduction_if_deleted = 0
