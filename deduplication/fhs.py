@@ -13,6 +13,7 @@ import math
 from datetime import datetime
 import pprint
 from collections import defaultdict
+from types import MethodType
 
 NOW = datetime.now()
 _4MiB = 4*(1024**2)
@@ -64,6 +65,7 @@ def eager(method):
 				obj_class=obj.__class__.__name__,
 				method_name=method.__name__
 			))
+		for method, args, kwargs in queue:
 			method(obj, *args, **kwargs)
 		queue.clear()
 
@@ -144,21 +146,24 @@ class File:
 		Operator for assisting with sum(), intended to sum up the file
 		sizes of all files.
 		"""
+		"""
 		print("\t self + other == {caller} + {other} == {val}".format(
 			caller=self,
 			other=other,
 			val=other+len(self)
 		))
+		"""
 		return other + len(self)
 
 	@debug
 	def __radd__(self, other):
+		"""
 		print("\t other + self == {caller} + {other} == {val}".format(
 			caller=other,
 			other=self,
 			val=self+other
 		))
-
+		"""
 		return self+other
 
 	def truncated_path(self):
@@ -279,8 +284,9 @@ class FileBundles:
 		)
 
 	@cascade
+	@debug
 	def apply(self, fn):
-		map(fn, self)
+		[_ for _ in map(fn, self)]
 
 	def __lt__(self, other):
 		return len(self) < len(other)
@@ -293,7 +299,7 @@ class FileBundles:
 	@debug
 	def __repr__(self):
 		print("current bundles:")
-		return "\n".join( [str(b) for b in self.file_bundles] )
+		return "\n".join( [repr(b) for b in self.file_bundles] )
 
 
 def thematic_break(title=None, char='-', width=80):
@@ -385,7 +391,8 @@ if __name__ == "__main__":
 	print(thematic_break(
 		title="sort bundles by size reduction through pruning",
 	))
-	#size_reduction_from_pruning = lambda bundle: sum(bundle)*(1 - 1/len(bundle))
+	size_reduction_from_pruning = lambda bundle: sum(bundle)*(1 - 1/len(bundle))
+	"""
 	def size_reduction_from_pruning(bundle):
 		print("-"*80)
 		n = sum(bundle)*(1 - 1/len(bundle))
@@ -395,7 +402,7 @@ if __name__ == "__main__":
 		print("len := {file_count}".format(file_count=len(bundle)))
 		print(thematic_break(title="size: {0}".format(n)))
 		return n
-
+	"""
 	sorted_bundles_of_duplicate_files = duplicate_files.sort(
 		key=size_reduction_from_pruning,
 		reverse=True
@@ -407,6 +414,7 @@ if __name__ == "__main__":
 		reversed=True
 	)
 	"""
+	print("="*30 + "done sorting")
 	pprint.pprint([(n, b) for n, b in zip(
 		map(size_reduction_from_pruning, sorted_bundles_of_duplicate_files),
 		sorted_bundles_of_duplicate_files
@@ -419,7 +427,7 @@ if __name__ == "__main__":
 		bundle, key=lambda file: file.stat().st_mtime
 	)
 	sort_by_descending_age = lambda bundle: bundle.sort(
-		key=getattr(bundle, 'birth')
+		key=lambda file: file.birth()
 	)
 	further_sorted_by_file_age = sorted_bundles_of_duplicate_files.apply(
 		fn=sort_by_descending_age
@@ -436,6 +444,23 @@ if __name__ == "__main__":
 		for f in b:
 			print((f.birth(), f))
 	print(thematic_break())
+
+	print(thematic_break(title="STAGE 7", char="="))
+	print(thematic_break(title="hide oldest file so it's not deleted"))
+	print_as_a_comment = lambda x: "# {x}".format(x)
+	#hide_oldest = lambda bundle: bundle[0].__repr__ = print_as_a_comment
+	def hide_oldest(bundle):
+		print("\toldest file will print as comment")
+		oldest = bundle[0]
+		oldest.__str__ = MethodType(print_as_a_comment, oldest)
+		print(str(bundle[0]))
+
+	hidden_oldest = further_sorted_by_file_age.apply(
+		fn=hide_oldest
+	)
+	print(hidden_oldest)
+	print(thematic_break(title="oldest hidden"))
+
 
 	"""
 	#--- list files to delete?
