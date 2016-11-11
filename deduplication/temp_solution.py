@@ -22,12 +22,7 @@ def truncate_url(path, to_length=70):
 		filename_elipses = "[...]"
 		filestem, fileext = os.path.splitext(filename)
 		reduce_by = path_length - (to_length - len(filename_elipses))
-		print('.'*path_length + '\t path length')
-		print('.'*(to_length-(path_length-to_length)) + '\t needed change')
-		print('.'*(to_length-reduce_by) + '\t compensate for elipses')
 		filename = filestem[:-reduce_by].strip() + filename_elipses + fileext
-		print(filename)
-		print('.'*to_length)
 		assert len(filename) <= to_length, "not short enough"
 
 	return dirname + filename
