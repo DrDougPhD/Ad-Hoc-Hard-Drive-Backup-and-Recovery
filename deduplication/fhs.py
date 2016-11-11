@@ -60,7 +60,7 @@ def eager(method):
 	"""
 	def resolve(queue, obj):
 		for method, args, kwargs in queue:
-			print("Call-by-need: {obj_class}.{method_name}".format(
+			print("\t-> call-by-need: {obj_class}.{method_name}".format(
 				obj_class=obj.__class__.__name__,
 				method_name=method.__name__
 			))
@@ -88,6 +88,15 @@ def cascade(method):
 
 	return calling_object_returner
 
+def debug(method):
+	def describe_called_method(self, *args, **kwargs):
+		print("\t{class_name}.{method_name}(...) was called".format(
+			class_name=self.__class__.__name__,
+			method_name=method.__name__
+		))
+		return method(self, *args, **kwargs)
+	describe_called_method.__name__ = method.__name__
+	return describe_called_method
 
 class File:
 	BLOCKSIZE=_4MiB
@@ -115,11 +124,13 @@ class File:
 		return str(age)
 
 	def __len__(self):
+		print("\tFile.__len__ called on '{file}'".format(file=self))
 		return self.path.stat().st_size
 
 	def truncated_path(self):
 		return str(self)
 
+	@debug
 	def __hash__(self):
 		assert self.exists(), "File not found - '{file_path}'".format(
 			file_path=self)
@@ -127,17 +138,17 @@ class File:
 			file_path=self)
 		hasher = hashlib.md5()
 
-		with open(str(file_path), 'rb') as file:
+		with open(str(self.path), 'rb') as file:
 			while True:
 				block = file.read(File.BLOCKSIZE)
 				if len(block)==0:
 					break
 				hasher.update(block)
-
-		return hasher.hexdigest()
-
-	def _load(self):
-		pass
+		print("hash := {summed}\t{hash_ints}".format(
+			summed=sum(hasher.digest()),
+			hash_ints="".join( ["{:>5}".format(c) for c in hasher.digest()] )
+		))
+		return sum(hasher.digest()) # this is not very safe, but is a temporary placeholder
 
 	def __truediv__(self, key):
 		return File(self.path/key)
@@ -147,6 +158,12 @@ class File:
 
 	def __repr__(self):
 		return str(self.path)
+
+	def exists(self):
+		return self.path.exists()
+
+	def is_file(self):
+		return self.path.is_file()
 
 
 class FileBundle:
@@ -172,13 +189,13 @@ class FileBundles:
 	bundling-key equivalence relation.
 	"""
 	@lazy
+	@debug
 	def __init__(self, within, key):
 		"""
 		Recursively walk through all files stored within the specified
 		root directory and bundle them together based on the output
 		of a specified function.
 		"""
-		print("...(actually executing: FileBundles.__init__)...")
 		self.within = within
 		self.bundle_key = key
 		self.file_bundles = []
@@ -203,11 +220,29 @@ class FileBundles:
 
 	@cascade
 	@lazy
+	@debug
 	def filter(self, function):
 		"""
 		Filter out file bundles based on this function's truthiness.
 		"""
-		self.file_bundles = filter(function, self.file_bundles)
+		self.file_bundles = list(filter(function, self.file_bundles))
+
+	@cascade
+	@lazy
+	@debug
+	def hone(self, by):
+		"""
+		Further partition the existing partitions by the 'by' function.
+		"""
+		refined_bundles = defaultdict(list)
+		print("Partitioning bundles")
+		print([str(b) for b in self.file_bundles])
+		for bundle in self.file_bundles:
+			print("--- {bundle}".format(bundle=bundle))
+			for file in bundle:
+				print("\t{filehash}\t{file}".format(filehash=by(file), file=file))
+				refined_bundles[by(file)].append(file)
+		self.file_bundles = refined_bundles.values()
 
 	def __lt__(self, other):
 		return len(self) < len(other)
@@ -232,8 +267,9 @@ class FileBundles:
 	"""
 
 	@eager
+	@debug
 	def __repr__(self):
-		print("\t{class_name}.__repr__".format(class_name=self.__class__.__name__))
+		print("current bundles:")
 		return "\n".join( [str(b) for b in self.file_bundles] )
 
 
@@ -297,19 +333,23 @@ if __name__ == "__main__":
 	potential_duplicates = files.filter(only_multifile_bundles)
 	print('filtering complete:')
 	pprint.pprint(potential_duplicates)
+	print(potential_duplicates)
 	print(thematic_break())
 
-	"""
 	print(thematic_break(title="STAGE 3", char="="))
 	print(thematic_break(title="compute file hashes", char="-"))
+	hashed_files = potential_duplicates.hone(by=hash)
+	"""
 	hashed_files = FileBundler(
 		within=potential_duplicates,
 		key=hash
 	)
-	print(potential_duplicates)
+	"""
+	print(hashed_files)
 	print(thematic_break())
 
 
+	"""
 	print(thematic_break(title="STAGE 4", char="="))
 	print(thematic_break(title="focus on files with duplicate copies"))
 	duplicate_files = hashed_files.filter(only_multifile_bundles)
