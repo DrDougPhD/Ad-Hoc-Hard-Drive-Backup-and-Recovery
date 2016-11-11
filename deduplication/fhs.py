@@ -12,7 +12,7 @@ import hashlib
 import math
 from datetime import datetime
 import pprint
-
+from collections import defaultdict
 
 NOW = datetime.now()
 _4MiB = 4*(1024**2)
@@ -90,7 +90,7 @@ class File:
 
 	@staticmethod
 	def within(directory):
-		print("Walking through files within '{directory}'".format(
+		print("walking through files within '{directory}'".format(
 			directory=directory
 		))
 		blank_file_within_directory = File(directory)
@@ -111,7 +111,7 @@ class File:
 		return str(age)
 
 	def __len__(self):
-		return self.stat().st_size
+		return self.path.stat().st_size
 
 	def truncated_path(self):
 		return str(self)
@@ -136,12 +136,10 @@ class File:
 		pass
 
 	def __truediv__(self, key):
-		self.path = self.path/key
-		return self
+		return File(self.path/key)
 
 	def __rtruediv__(self, key):
-		self.path = key/self.path
-		return self
+		return File(key/self.path)
 
 	def __repr__(self):
 		return str(self.path)
@@ -160,6 +158,15 @@ class FileBundle:
 
 
 class FileBundles:
+	"""
+	The bundling key needs to operate such that it defines an equivalence
+	relation on files. In other words, the bundling key should partition
+	the set of files. This partitioning creates equivalence classes called
+	"bundles" such that any two files within a bundle have the same value
+	of the key produced by the bundling key. Thus, the FileBundles object
+	can be seen as a quotient set of its constituent files by the
+	bundling-key equivalence relation.
+	"""
 	@lazy
 	def __init__(self, within, key):
 		"""
@@ -172,13 +179,30 @@ class FileBundles:
 		self.bundle_key = key
 		self.file_bundles = []
 
-		within_path = str(within)
-		for directory, _, files in os.walk(str(within), topdown=False):
-			self.files = map(File.within(directory), files)
+		self.file_bundles = defaultdict(list)
+		for directory, _, files in os.walk(str(within)): #, topdown=False):
+			if not files:
+				print("\t no files, skipping '{directory}'".format(directory=directory))
+				print("."*80)
+				continue
+
+			for file in map(File.within(directory), files):
+				print("\t{file}".format(file=file))
+				self.file_bundles[len(file)].append(file)
+				print("... bundles updated with '{file}'".format(file=file))
+				pprint.pprint(self.file_bundles)
+				if len(self.file_bundles[len(file)]) > 1:
+					# apply second bundling?
+					pass
+			print("."*80)
 
 	@cascade
 	@lazy
 	def filter(self, function):
+		"""
+		Filter out file bundles based on this function's truthiness.
+		"""
+		print("...(filter)...")
 		return self
 
 	def __lt__(self, other):
@@ -205,7 +229,7 @@ class FileBundles:
 
 	@eager
 	def __str__(self):
-		return pprint.pformat(self.files)
+		return pprint.pformat(self.file_bundles)
 
 
 def thematic_break(title=None, char='-', width=80):
@@ -234,6 +258,21 @@ def thematic_break(title=None, char='-', width=80):
 
 if __name__ == "__main__":
 	#main()
+	"""
+	duplicate_files = FileBundles(within=directory, key=os.path.getsize)\
+		.filter(by=only_multifile_bundles)\
+		.hone(by=hash)\
+		.filter(by=only_multifile_bundles)\
+		.sort(key=size_reduction_from_pruning, reversed=True)\
+		.apply(fn=sort_by_descending_age)\
+		.apply(fn=hide_oldest)
+
+	print(format(
+		value=duplicate_files.annotate(with_=storage_space_running_total),
+		format_spec=("{truncated_path:>20}\t{humanized_size:>5}\t"
+			"{age:>10}\t{storage_space_running_total:>5}")
+	))
+	"""
 
 	print(thematic_break(title="STAGE 1", char="="))
 	print(thematic_break(title="file system walking", char="-"))
