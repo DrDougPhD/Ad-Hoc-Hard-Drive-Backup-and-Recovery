@@ -114,6 +114,7 @@ class File:
 		return build_from_filename
 
 	def __init__(self, path):
+		self.size = None
 		if isinstance(path, str):
 			self.path = Path(path)
 		else:
@@ -126,7 +127,10 @@ class File:
 
 	def __len__(self):
 		print("\tFile.__len__ called on '{file}'".format(file=self))
-		return self.path.stat().st_size
+		if not hasattr(self, '_size'):
+			print("size memoized")
+			self._size = self.path.stat().st_size
+		return self._size
 
 	@debug
 	def __add__(self, other):
@@ -271,6 +275,7 @@ class FileBundles:
 			print("--- new bundles")
 			pprint.pprint(partitioned_bundle)
 		self.file_bundles = refined_bundles.values()
+
 	@cascade
 	@lazy
 	@debug
@@ -282,12 +287,9 @@ class FileBundles:
 	def __lt__(self, other):
 		return len(self) < len(other)
 
-	"""
 	def __iter__(self):
 		for bundle in self.file_bundles:
 			yield bundle
-
-	"""
 
 	@eager
 	@debug
@@ -385,7 +387,17 @@ if __name__ == "__main__":
 	print(thematic_break(
 		title="sort bundles by size reduction through pruning",
 	))
-	size_reduction_from_pruning = lambda bundle: sum(bundle)*(1 - 1/len(bundle))
+	#size_reduction_from_pruning = lambda bundle: sum(bundle)*(1 - 1/len(bundle))
+	def size_reduction_from_pruning(bundle):
+		print("-"*80)
+		n = sum(bundle)*(1 - 1/len(bundle))
+		print("bundle: ")
+		print(bundle)
+		print("sum := {summation}".format(summation=sum(bundle)))
+		print("len := {file_count}".format(file_count=len(bundle)))
+		print(thematic_break(title="size: {0}".format(n)))
+		return n
+
 	sorted_bundles_of_duplicate_file = duplicate_files.sort(
 		key=size_reduction_from_pruning,
 		reverse=True
@@ -397,7 +409,10 @@ if __name__ == "__main__":
 		reversed=True
 	)
 	"""
-	print(sorted_bundles_of_duplicate_file)
+	pprint.pprint([(n, b) for n, b in zip(
+		map(size_reduction_from_pruning, sorted_bundles_of_duplicate_file),
+		sorted_bundles_of_duplicate_file
+	)])
 	print(thematic_break())
 
 	"""
