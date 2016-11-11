@@ -5,14 +5,15 @@ import os
 SIZE_THRESHOLD = 1000*1000
 
 def truncate_url(path, to_length=70):
-	filename = os.path.basename(path)
+	dirname, filename = os.path.split(path)
 	filename_length = len(filename)
-	dirname = os.path.dirname(path)
-	truncated_dirname = dirname + '/'
-	while to_length <= len(truncated_dirname)+filename_length:
-		dirname = os.path.dirname(dirname)
-		truncated_dirname = dirname + '/.../'
-	truncated_path = truncated_dirname + filename
+	path_parts = dirname.split('/')
+	dirname += '/'
+	
+	while to_length <= len(dirname)+filename_length:
+		path_parts = path_parts[1:]
+		dirname = '.../' + '/'.join(path_parts) + '/'
+	truncated_path = dirname + filename
 	print('{path}\t{n} chars long'.format(
 		path=truncated_path,
 		n=len(truncated_path)
@@ -49,7 +50,7 @@ with open(sys.argv[1]) as f:
 				running_total_savings,
 				gnu=True
 			))
-			print("{path}\t{running_total_savings:<5}".format(
+			print("{path:>70}\t{running_total_savings:<5}".format(
 				path=truncate_url(file, to_length=70),
 				running_total_savings=humanize.naturalsize(
 					running_total_savings,
