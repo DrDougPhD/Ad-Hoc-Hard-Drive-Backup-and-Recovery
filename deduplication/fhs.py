@@ -60,6 +60,10 @@ def eager(method):
 	"""
 	def resolve(queue, obj):
 		for method, args, kwargs in queue:
+			print("Call-by-need: {obj_class}.{method_name}".format(
+				obj_class=obj.__class__.__name__,
+				method_name=method.__name__
+			))
 			method(obj, *args, **kwargs)
 		queue.clear()
 
@@ -179,7 +183,7 @@ class FileBundles:
 		self.bundle_key = key
 		self.file_bundles = []
 
-		self.file_bundles = defaultdict(list)
+		bundles = defaultdict(list)
 		for directory, _, files in os.walk(str(within)): #, topdown=False):
 			if not files:
 				print("\t no files, skipping '{directory}'".format(directory=directory))
@@ -188,13 +192,14 @@ class FileBundles:
 
 			for file in map(File.within(directory), files):
 				print("\t{file}".format(file=file))
-				self.file_bundles[len(file)].append(file)
+				bundles[len(file)].append(file)
 				print("... bundles updated with '{file}'".format(file=file))
-				pprint.pprint(self.file_bundles)
-				if len(self.file_bundles[len(file)]) > 1:
+				pprint.pprint( bundles )
+				if len(bundles[len(file)]) > 1:
 					# apply second bundling?
 					pass
 			print("."*80)
+		self.file_bundles = bundles.values()
 
 	@cascade
 	@lazy
@@ -202,8 +207,7 @@ class FileBundles:
 		"""
 		Filter out file bundles based on this function's truthiness.
 		"""
-		print("...(filter)...")
-		return self
+		self.file_bundles = filter(function, self.file_bundles)
 
 	def __lt__(self, other):
 		return len(self) < len(other)
@@ -228,8 +232,9 @@ class FileBundles:
 	"""
 
 	@eager
-	def __str__(self):
-		return pprint.pformat(self.file_bundles)
+	def __repr__(self):
+		print("\t{class_name}.__repr__".format(class_name=self.__class__.__name__))
+		return "\n".join( [str(b) for b in self.file_bundles] )
 
 
 def thematic_break(title=None, char='-', width=80):
@@ -290,7 +295,8 @@ if __name__ == "__main__":
 	only_multifile_bundles = lambda bundle: 1 < len(bundle)
 	#potential_duplicates = filter(only_multifile_bundles, files)
 	potential_duplicates = files.filter(only_multifile_bundles)
-	print(potential_duplicates)
+	print('filtering complete:')
+	pprint.pprint(potential_duplicates)
 	print(thematic_break())
 
 	"""
