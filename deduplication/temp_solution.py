@@ -72,6 +72,7 @@ def get_arguments():
 args = get_arguments()
 with open(str(args.fdupes_file)) as f:
 	redundant_files = []
+	total_savings = 0
 	for line in f:
 		line = line.strip()
 		if line:
@@ -85,7 +86,9 @@ with open(str(args.fdupes_file)) as f:
 			else:
 				files = new_group['files']
 				if files:
-					new_group['savings_if_deduped'] += new_group['file_size']
+					s = new_group['file_size']
+					new_group['savings_if_deduped'] += s
+					total_savings += s
 				files.append(line)
 
 	redundant_files.sort(key=lambda group: group['savings_if_deduped'], reverse=True)
@@ -97,6 +100,13 @@ with open(str(args.fdupes_file)) as f:
 	# summarize the files that would be deleted, along with how much space
 	# is reclaimed by deleting all files above that line
 	print('#'*80)
+	print("# Storage space recoverable (overall): {}".format(humanize.naturalsize(
+		total_savings,
+		gnu=True
+	)))
+	print('#' + '-'*79)
+
+
 	print("# {path:^60}  {size:^6}  {savings:^6} #".format(
 		path="Files to delete (truncated paths)",
 		size="Size",
@@ -126,7 +136,6 @@ with open(str(args.fdupes_file)) as f:
 		pass
 
 	print('#'*80)
-
 	running_total_savings = 0
 	try:
 		# create shell commands to perform deletion
