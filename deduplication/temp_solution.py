@@ -62,6 +62,10 @@ def get_arguments():
 		default=0, type=int,
 		help='groups taking up less than this size will not be deleted',
 	)
+	parser.add_argument('-x', '--only-delete-filetype',
+		dest='unwanted_filetype',
+		help='only delete files with given extension'
+	)
 
 	return parser.parse_args()
 
@@ -85,7 +89,10 @@ with open(str(args.fdupes_file)) as f:
 				files.append(line)
 
 	redundant_files.sort(key=lambda group: group['savings_if_deduped'], reverse=True)
+
+	unwanted_filetype = lambda grp: grp['files'][0].lower().endswith(args.unwanted_filetype)
 	large_enough_savings = lambda grp: grp['savings_if_deduped'] > args.min_dupe_group_size
+	satisfies_deletion_conditions = lambda grp: large_enough_savings(grp) and unwanted_filetype(grp)
 
 	# summarize the files that would be deleted, along with how much space
 	# is reclaimed by deleting all files above that line
@@ -97,7 +104,7 @@ with open(str(args.fdupes_file)) as f:
 	))
 
 	running_total_savings = 0
-	duplicates = list( filter(large_enough_savings, redundant_files) )
+	duplicates = list( filter(satisfies_deletion_conditions, redundant_files) )
 	try:
 		for duplicate_group in duplicates:
 			files_to_delete = duplicate_group['files'][1:]
@@ -123,7 +130,7 @@ with open(str(args.fdupes_file)) as f:
 	running_total_savings = 0
 	try:
 		# create shell commands to perform deletion
-		for duplicate_group in filter(large_enough_savings, redundant_files):
+		for duplicate_group in duplicates:
 			original_file = duplicate_group['files'][0]
 			print("#"*40 + " Original: '{}'".format(original_file))
 			files_to_delete = duplicate_group['files'][1:]
