@@ -35,6 +35,8 @@ def lazy(method):
 		if not hasattr(self, '_lazy_queue'):
 			self._lazy_queue = deque()
 
+		print("eager.kwargs := {kw}".format(kw=kwargs))
+		print("eager.args   := {args}".format(args=args))
 		if eager_key in kwargs and kwargs[eager_key]:
 			# if method was called eagerly, then execute it now
 			# does not consider queue of methods to execute
@@ -47,8 +49,6 @@ def lazy(method):
 			print("Lazy loading of lazy method: {method_name}".format(
 				method_name=method.__name__
 			))
-			if not hasattr(self, '_lazy_queue'):
-				self._lazy_queue = []
 			self._lazy_queue.append((method, args, kwargs))
 	return queuer
 
@@ -98,6 +98,7 @@ def debug(method):
 	describe_called_method.__name__ = method.__name__
 	return describe_called_method
 
+
 class File:
 	BLOCKSIZE=_4MiB
 
@@ -126,6 +127,29 @@ class File:
 	def __len__(self):
 		print("\tFile.__len__ called on '{file}'".format(file=self))
 		return self.path.stat().st_size
+
+	@debug
+	def __add__(self, other):
+		"""
+		Operator for assisting with sum(), intended to sum up the file
+		sizes of all files.
+		"""
+		print("\t self + other == {caller} + {other} == {val}".format(
+			caller=self,
+			other=other,
+			val=other+len(self)
+		))
+		return other + len(self)
+
+	@debug
+	def __radd__(self, other):
+		print("\t other + self == {caller} + {other} == {val}".format(
+			caller=other,
+			other=self,
+			val=self+other
+		))
+
+		return self+other
 
 	def truncated_path(self):
 		return str(self)
@@ -247,21 +271,16 @@ class FileBundles:
 			print("--- new bundles")
 			pprint.pprint(partitioned_bundle)
 		self.file_bundles = refined_bundles.values()
+	@cascade
+	@lazy
+	@debug
+	def sort(self, key=lambda b: b, reverse=False):
+		self.file_bundles = sorted(
+			self.file_bundles, key=key, reverse=reverse
+		)
 
 	def __lt__(self, other):
 		return len(self) < len(other)
-
-	def overhead(self):
-		pass
-
-	def __radd__(self, other):
-		if other == 0:
-			return self
-		else:
-			return self.__add__(other)
-
-	def __add__(self, other):
-		pass
 
 	"""
 	def __iter__(self):
@@ -356,26 +375,32 @@ if __name__ == "__main__":
 	print(thematic_break(title="focus on files with duplicate copies"))
 	print("before:")
 	pprint.pprint(hashed_files)
-	duplicate_files = hashed_files.filter(only_multifile_bundles)
+	duplicate_files = hashed_files.filter(only_multifile_bundles) #TODO: not necessarily filter them, but hide them
 	print("after:")
 	pprint.pprint(duplicate_files)
 	print(thematic_break())
 	#print(filehasher(file_path=directory/'file.1'))
 
-	"""
 	print(thematic_break(title="STAGE 5", char="="))
 	print(thematic_break(
 		title="sort bundles by size reduction through pruning",
 	))
-	size_reduction_from_pruning = lambda bundle: bundle
+	size_reduction_from_pruning = lambda bundle: sum(bundle)*(1 - 1/len(bundle))
+	sorted_bundles_of_duplicate_file = duplicate_files.sort(
+		key=size_reduction_from_pruning,
+		reverse=True
+	)
+	"""
 	sorted_bundles_of_duplicate_file = sorted(
 		duplicate_files,
 		key=size_reduction_from_pruning,
 		reversed=True
 	)
+	"""
 	print(sorted_bundles_of_duplicate_file)
 	print(thematic_break())
 
+	"""
 	print(thematic_break(title="STAGE 6", char="="))
 	print(thematic_break(title="sort by file age within each bundle"))
 	sort_bundle_by_file_age = lambda bundle: sorted(
