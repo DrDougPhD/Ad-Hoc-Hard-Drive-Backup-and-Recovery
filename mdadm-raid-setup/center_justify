@@ -1,0 +1,12 @@
+#!/usr/bin/env python
+# Minimal script for center-justified text
+#
+# One-liner: 
+# python -c "import sys;r=sys.argv[1:];f,t=((' ',r[0]) if len(r)<2 else (r[0],r[1]));print(('{:'+f+'^80}').format(' '+t+' '))"
+#
+# Author: Doug McGeehan <djmvfb@mst.edu>
+#
+import sys
+r=sys.argv[1:]
+fill, txt = ( (' ',r[0]) if len(r)<2 else (r[0],r[1]) )
+print(("{:"+fill+"^80}").format(' '+txt+' '))
