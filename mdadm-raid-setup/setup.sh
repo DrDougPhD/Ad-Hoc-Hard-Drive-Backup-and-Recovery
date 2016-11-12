@@ -6,15 +6,17 @@
 #		https://wiki.archlinux.org/index.php/RAID
 #
 
-THEMATIC_BREAK="-------------------------------------------------------------------------------"
-DRIVES=("sdb" "sdc" "sdd")
-
 # This script needs to be run as root.
 if [[ $EUID -ne 0 ]]
 then
 	echo "This script must be run as root. Exiting." 
 	exit 1
 fi
+
+
+THEMATIC_BREAK="-------------------------------------------------------------------------------"
+DRIVES=("sdb" "sdc" "sdd")
+
 
 #------------------------------------------------------------------------------
 # Install software dependencies.
@@ -43,12 +45,18 @@ confirm () {	# copied from http://stackoverflow.com/a/3232082
 			;;
 	esac
 }
-echo $THEMATIC_BREAK
+
+EQUAL_BARS="========================"
+for drive in ${DRIVES[@]}
+do
+	echo "${EQUAL_BARS} INFORMATION ON DRIVE /dev/${drive} ${EQUAL_BARS}"
+	smartctl -i "/dev/${drive}"
+done
+echo 
+
 lsblk
 echo $THEMATIC_BREAK
-echo "Gathering hard drive information..."
-lshw -class disk
-echo $THEMATIC_BREAK
+
 echo "Drives to process:"
 for drive in ${DRIVES[@]}
 do
@@ -56,6 +64,8 @@ do
 done
 ominous_prompt="Are you sure you want to go through this data-destroying"
 ominous_prompt="${ominous_prompt} process on the aforementioned drives?"
+Are you sure you want to go through this data-destroying"
+${ominous_prompt} process on the aforementioned drives?"
 confirm	"$ominous_prompt"
 
 # if the script has made it this far, the user entered some variant of "Yes"
