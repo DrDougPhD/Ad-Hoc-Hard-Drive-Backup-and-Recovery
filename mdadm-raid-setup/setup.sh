@@ -35,7 +35,7 @@ install_dependencies () {
 #
 confirm () {	# copied from http://stackoverflow.com/a/3232082
 	# call with a prompt string or use a default
-	read -r -p "${1:-Are you sure?} [y/N]: " response
+	read -r -p "${1:-Response} [y/N]: " response
 	case $response in
 		[yY][eE][sS]|[yY]) 
 			true
@@ -46,10 +46,9 @@ confirm () {	# copied from http://stackoverflow.com/a/3232082
 	esac
 }
 
-EQUAL_BARS="========================"
 for drive in ${DRIVES[@]}
 do
-	echo "${EQUAL_BARS} INFORMATION ON DRIVE /dev/${drive} ${EQUAL_BARS}"
+	./center_justify "=" "INFORMATION ON DRIVE /dev/${drive}"
 	smartctl -i "/dev/${drive}"
 done
 echo 
@@ -62,11 +61,9 @@ for drive in ${DRIVES[@]}
 do
 	echo -e "\t/dev/${drive}"
 done
-ominous_prompt="Are you sure you want to go through this data-destroying"
-ominous_prompt="${ominous_prompt} process on the aforementioned drives?"
-Are you sure you want to go through this data-destroying"
-${ominous_prompt} process on the aforementioned drives?"
-confirm	"$ominous_prompt"
+echo "Are you sure you want to go through this data-"
+echo "destroying process on the aforementioned drives?"
+confirm
 
 # if the script has made it this far, the user entered some variant of "Yes"
 
