@@ -108,12 +108,11 @@ function partition {
 	#		http://www.rodsbooks.com/gdisk/sgdisk-walkthrough.html
 
 	disk="$1"
+	echo "Creating partition for '${disk}'"
 
 	# Gather information about first and last sector of the disk.
 	# 	Display the sector number of the first usable sector of the largest empty block of sectors on the disk, after partition alignment is considered.
 	BEGINSECTOR=$(sgdisk --first-aligned-in-largest ${disk})
-	# 	Display the sector number at the end of the largest empty block of sectors on the disk.
-	ENDSECTOR=$(sgdisk --end-of-largest ${disk})
 
 	# When replacing a failed disk of a RAID, the new disk has to be exactly the
 	#	 same size as the failed disk or bigger, otherwise the array recreation
@@ -131,9 +130,10 @@ function partition {
 	# 	--new, args=partnum:start:end, Create a new partition, numbered partnum, starting at sector start and ending at sector end.
 	# 	--change-name, args=partnum:name, Change the name of the specified partition.
 	# 	--typecode, args=partnum:hexcode, Change a partition's GUID type code to the one specified by hexcode. Note that hexcode is a gdisk/sgdisk internal two-byte hexadecimal code. You can obtain a list of codes with the -L option.
-	sgdisk	--pretend \
-					--new					1:${BEGINSECTOR}:${ENDSECTOR} \
-					--change-name	1:"${NAME}" \
+	label=$(smartctl -i $disk | ./make_model_serial)
+	echo "Partition to be named '$label'"
+	sgdisk	--new					1:${BEGINSECTOR}:${MIN_END_SECTOR} \
+					--change-name	1:"${label}" \
 					--typecode		1:${SGDISK_LINUX_RAID_TYPECODE}	\
 					${disk}
 
@@ -143,21 +143,23 @@ function partition {
 
 # Create GPT partition tables on each drive, and determine the minimum ending
 # sector boundary over all drives.
+./center_justify "CREATING PARTITION TABLES"
 for drive in ${DRIVES[@]}
 do
 	# Erase all GPT data structures and create a fresh GPT.
 	disk="/dev/${drive}"
 	sgdisk --clear ${disk}
+	# 	Display the sector number at the end of the largest empty block of sectors on the disk.
 	update_min $(sgdisk --end-of-largest ${disk})
 done
 echo "End sector number is at ${MIN_END_SECTOR}."
 
+./center_justify "CREATING PARTITIONS"
 # Create partitions on each drive with appropriate size and labels.
 for drive in ${DRIVES[@]}
 do
 	disk="/dev/${drive}"
-	#partition ${disk}
+	partition ${disk}
 	echo $THEMATIC_BREAK
 done
-
 
