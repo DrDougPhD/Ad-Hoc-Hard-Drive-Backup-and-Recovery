@@ -22,31 +22,18 @@ hard_drive_info = {
 
 # See here for more information:
 #   https://en.wikipedia.org/wiki/GUID_Partition_Table#Partition_entries
-MAX_GPT_PARTITION_NAME_LENGTH = 72
+MAX_GPT_PARTITION_NAME_LENGTH = 36
 
 for line in sys.stdin:
     line_parts = line.strip().split(':')
     if len(line_parts) > 1 and line_parts[0] in hard_drive_info.keys():
         hard_drive_info[line_parts[0]] = line_parts[1].strip()
 
-output = "{make}, Model {model}, Serial {serial}".format(
-    make=hard_drive_info[MAKE_KEY],
+# Remove trailing bits from model name.
+hard_drive_info[MODEL_KEY] = hard_drive_info[MODEL_KEY].split()[0]
+output = "{model}-SN.{serial}".format(
     model=hard_drive_info[MODEL_KEY],
     serial=hard_drive_info[SERIAL_KEY]
 )
-if len(output) > MAX_GPT_PARTITION_NAME_LENGTH:
-    output =  "{make},{model},SN {serial}".format(
-        make=hard_drive_info[MAKE_KEY],
-        model=hard_drive_info[MODEL_KEY],
-        serial=hard_drive_info[SERIAL_KEY]
-    )
-
-if len(output) > MAX_GPT_PARTITION_NAME_LENGTH:
-    output =  "{model},SN {serial}".format(
-        make=hard_drive_info[MAKE_KEY],
-        model=hard_drive_info[MODEL_KEY],
-        serial=hard_drive_info[SERIAL_KEY]
-    )
-
 assert len(output) <= MAX_GPT_PARTITION_NAME_LENGTH, "'{}' is too long!".format(output)    
 print(output)
