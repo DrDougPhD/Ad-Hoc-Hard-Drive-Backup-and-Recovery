@@ -31,7 +31,7 @@ for line in sys.stdin:
 
 # Remove trailing bits from model name.
 hard_drive_info[MODEL_KEY] = hard_drive_info[MODEL_KEY].split()[0]
-output = "{model}-SN.{serial}".format(
+output = "{model}.{serial}".format(
     model=hard_drive_info[MODEL_KEY],
     serial=hard_drive_info[SERIAL_KEY]
 )
