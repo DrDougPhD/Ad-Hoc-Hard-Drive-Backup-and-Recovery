@@ -13,18 +13,21 @@ then
 	exit 1
 fi
 
+DELAY=2
 
 THEMATIC_BREAK="-------------------------------------------------------------------------------"
-DRIVES=("sdb" "sdc" "sdd")
+DRIVES=("/dev/sdb" "/dev/sdc" "/dev/sdd")
 
 
 #------------------------------------------------------------------------------
 # Install software dependencies.
 #
 function install_dependencies {
-	apt-get install -y mdadm gdisk
+	apt-get install -y mdadm gdisk smartmontools
 }
-#install_dependencies
+./center_justify "=" "INSTALL DEPENDENCIES"
+install_dependencies
+sleep $DELAY
 
 #------------------------------------------------------------------------------
 # Double-check that hard drives to be added to the array are not currently
@@ -48,18 +51,20 @@ function confirm {	# copied from http://stackoverflow.com/a/3232082
 
 for drive in ${DRIVES[@]}
 do
-	./center_justify "=" "INFORMATION ON DRIVE /dev/${drive}"
-	smartctl -i "/dev/${drive}"
+	./center_justify "-" "INFORMATION ON DRIVE ${drive}"
+	smartctl -i "${drive}"
+	sleep $DELAY
 done
 echo 
 
 lsblk
 echo $THEMATIC_BREAK
+sleep $DELAY
 
 echo "Drives to process:"
 for drive in ${DRIVES[@]}
 do
-	echo -e "\t/dev/${drive}"
+	echo -e "\t ${drive}"
 done
 echo "Are you sure you want to go through this data-"
 echo "destroying process on the aforementioned drives?"
@@ -72,9 +77,10 @@ confirm
 #
 for drive in ${DRIVES[@]}
 do
-	echo "Erasing superblock on /dev/${drive}"
-	# mdadm --zero-superblock /dev/${drive}
+	echo "Erasing superblock on ${drive}"
+	mdadm --zero-superblock ${drive}
 	echo $THEMATIC_BREAK
+	sleep $DELAY
 done
 
 #------------------------------------------------------------------------------
@@ -103,16 +109,33 @@ function update_min {
 	MIN_END_SECTOR=$(( $1<$MIN_END_SECTOR ? $1 : $MIN_END_SECTOR ))
 }
 
+# Create GPT partition tables on each drive, and determine the minimum ending
+# sector boundary over all drives.
+./center_justify "+" "CREATING PARTITION TABLES"
+for drive in ${DRIVES[@]}
+do
+	# Erase all GPT data structures and create a fresh GPT.
+	sgdisk --clear ${drive}
+	# 	Display the sector number at the end of the largest empty block of sectors on the disk.
+	update_min $(sgdisk --end-of-largest ${drive})
+done
+echo "End sector number is at ${MIN_END_SECTOR}."
+
+#------------------------------------------------------------------------------
+# Create partitions on each drive.
+#
+declare -a PARTITIONS
+INDEX=0
 function partition {
 	# Read more on sgdisk here:
 	#		http://www.rodsbooks.com/gdisk/sgdisk-walkthrough.html
 
-	disk="$1"
-	echo "Creating partition for '${disk}'"
+	drive="$1"
+	echo "Creating partition for '${drive}'"
 
 	# Gather information about first and last sector of the disk.
 	# 	Display the sector number of the first usable sector of the largest empty block of sectors on the disk, after partition alignment is considered.
-	BEGINSECTOR=$(sgdisk --first-aligned-in-largest ${disk})
+	BEGINSECTOR=$(sgdisk --first-aligned-in-largest ${drive})
 
 	# When replacing a failed disk of a RAID, the new disk has to be exactly the
 	#	 same size as the failed disk or bigger, otherwise the array recreation
@@ -130,36 +153,82 @@ function partition {
 	# 	--new, args=partnum:start:end, Create a new partition, numbered partnum, starting at sector start and ending at sector end.
 	# 	--change-name, args=partnum:name, Change the name of the specified partition.
 	# 	--typecode, args=partnum:hexcode, Change a partition's GUID type code to the one specified by hexcode. Note that hexcode is a gdisk/sgdisk internal two-byte hexadecimal code. You can obtain a list of codes with the -L option.
-	label=$(smartctl -i $disk | ./make_model_serial)
+	label=$(smartctl -i ${drive} | ./make_model_serial)
 	echo "Partition to be named '$label'"
 	sgdisk	--new					1:${BEGINSECTOR}:${MIN_END_SECTOR} \
 					--change-name	1:"${label}" \
 					--typecode		1:${SGDISK_LINUX_RAID_TYPECODE}	\
-					${disk}
+					${drive}
 
 	# Print information about the newly-partitioned disk.
-	sgdisk -p ${disk}
+	sgdisk -p ${drive}
+
+	PARTITIONS[${INDEX}]="${drive}1"
+	INDEX=$(( 1 + ${INDEX} ))
 }
 
-# Create GPT partition tables on each drive, and determine the minimum ending
-# sector boundary over all drives.
-./center_justify "CREATING PARTITION TABLES"
-for drive in ${DRIVES[@]}
-do
-	# Erase all GPT data structures and create a fresh GPT.
-	disk="/dev/${drive}"
-	sgdisk --clear ${disk}
-	# 	Display the sector number at the end of the largest empty block of sectors on the disk.
-	update_min $(sgdisk --end-of-largest ${disk})
-done
-echo "End sector number is at ${MIN_END_SECTOR}."
-
-./center_justify "CREATING PARTITIONS"
+./center_justify "=" "CREATING PARTITIONS"
 # Create partitions on each drive with appropriate size and labels.
 for drive in ${DRIVES[@]}
 do
-	disk="/dev/${drive}"
-	partition ${disk}
+	disk="${drive}"
+	partition ${drive}
 	echo $THEMATIC_BREAK
 done
+sleep $DELAY
+
+#------------------------------------------------------------------------------
+# Build the RAID 5 array.
+#
+CHUNK_SIZE=4096
+./center_justify "=" "BUILD RAID ARRAY"
+echo "Creating a RAID 5 array with chunk size of $CHUNK_SIZE on the following"
+echo " partitions: ${PARTITIONS[*]}"
+sleep $DELAY
+mdadm --create \
+	--verbose \
+	--level=5 \
+	--metadata=1.2 \
+	--chunk=${CHUNK_SIZE} \
+	--raid-devices=3 \
+	/dev/md0 \
+	${PARTITIONS[*]}
+
+#------------------------------------------------------------------------------
+# Update the mdadm.conf configuration file.
+#
+echo "Writing out configuration to file"
+echo 'DEVICE partitions' > ./mdadm.conf
+sleep $DELAY
+mdadm --detail --scan >> ./mdadm.conf
+sleep $DELAY
+
+#------------------------------------------------------------------------------
+# Assemble the RAID 5 array.
+#
+echo "Assembling RAID 5 array"
+sleep $DELAY
+mdadm --assemble --scan
+
+#------------------------------------------------------------------------------
+# Format the RAID filesystem.
+#
+./center_justify "=" "FILESYSTEM FORMATTING"
+sleep $DELAY
+BLOCK_SIZE=4096
+# stride = chunk size / block size
+STRIDE=$(( CHUNK_SIZE / BLOCK_SIZE ))
+# stripe width = number of data disks * stride
+STRIPE_WIDTH=$(( STRIDE * (${#PARTITIONS[@]}-1) ))
+
+function create_fs {
+	mkfs.ext4 -v \
+		-L myarray \
+		-m 0 \
+		-b ${BLOCK_SIZE} \
+		-E stride=${STRIDE},stripe-width=${STRIPE_WIDTH} \
+		/dev/md0
+}
+
+create_fs
 
