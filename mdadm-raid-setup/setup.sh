@@ -92,13 +92,22 @@ done
 #  I don't know if that format of a drive name is too long.
 #
 SGDISK_LINUX_RAID_TYPECODE="fd00"
+MIN_END_SECTOR=""
+function update_min {
+	# Return the minimum value of the two parameters.
+	if [ -z "${MIN_END_SECTOR}" ]
+	then	# minimum holder is not set, so let's set it with this value
+		MIN_END_SECTOR=$1
+	fi
+
+	MIN_END_SECTOR=$(( $1<$MIN_END_SECTOR ? $1 : $MIN_END_SECTOR ))
+}
+
 function partition {
 	# Read more on sgdisk here:
 	#		http://www.rodsbooks.com/gdisk/sgdisk-walkthrough.html
 
 	disk="$1"
-	# Erase all GPT data structures and create a fresh GPT.
-	sgdisk --pretend --clear	${disk}
 
 	# Gather information about first and last sector of the disk.
 	# 	Display the sector number of the first usable sector of the largest empty block of sectors on the disk, after partition alignment is considered.
@@ -114,6 +123,9 @@ function partition {
   #  drives, which makes choosing a replacement drive model easier. Therefore,
 	#  it is good practice to leave about 100 MB of unallocated space at the end
   #  of the disk.
+	# TODO: Iterate through disks, obtaining smallest sector value.
+	#       Take smallest sector value and subtract 100 MB from it.
+	#       Use that amount for the disk partition's end-sector value.
 
 	# Create the new partition and write it to the disk.
 	# 	--new, args=partnum:start:end, Create a new partition, numbered partnum, starting at sector start and ending at sector end.
@@ -129,10 +141,22 @@ function partition {
 	sgdisk -p ${disk}
 }
 
+# Create GPT partition tables on each drive, and determine the minimum ending
+# sector boundary over all drives.
 for drive in ${DRIVES[@]}
 do
-	disk="\dev\${drive}"
-	partition ${disk}
+	# Erase all GPT data structures and create a fresh GPT.
+	disk="/dev/${drive}"
+	sgdisk --clear ${disk}
+	update_min $(sgdisk --end-of-largest ${disk})
+done
+echo "End sector number is at ${MIN_END_SECTOR}."
+
+# Create partitions on each drive with appropriate size and labels.
+for drive in ${DRIVES[@]}
+do
+	disk="/dev/${drive}"
+	#partition ${disk}
 	echo $THEMATIC_BREAK
 done
 
