@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+# Extract the make, model, and serial number from the output of smartctl and
+#  return it as a single-line string.
+#
+# It is expected that the input of this script is the output of the following
+#  command:
+#   $ smartctl -i /dev/<drive>
+#
+# Author: Doug McGeehan <djmvfb@mst.edu>
+#
+import sys
+for line in sys.stdin:
+    print(line)
