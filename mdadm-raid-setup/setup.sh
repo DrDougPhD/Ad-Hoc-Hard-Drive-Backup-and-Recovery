@@ -26,8 +26,8 @@ function install_dependencies {
 	apt-get install -y mdadm gdisk smartmontools
 }
 ./center_justify "=" "INSTALL DEPENDENCIES"
-install_dependencies
-sleep $DELAY
+#install_dependencies
+read -p "Press [ENTER] to continue: "
 
 #------------------------------------------------------------------------------
 # Double-check that hard drives to be added to the array are not currently
@@ -53,13 +53,13 @@ for drive in ${DRIVES[@]}
 do
 	./center_justify "-" "INFORMATION ON DRIVE ${drive}"
 	smartctl -i "${drive}"
-	sleep $DELAY
+	read -p "Press [ENTER] to continue: "
 done
 echo 
 
 lsblk
 echo $THEMATIC_BREAK
-sleep $DELAY
+read -p "Press [ENTER] to continue: "
 
 echo "Drives to process:"
 for drive in ${DRIVES[@]}
@@ -80,7 +80,7 @@ do
 	echo "Erasing superblock on ${drive}"
 	mdadm --zero-superblock ${drive}
 	echo $THEMATIC_BREAK
-	sleep $DELAY
+	read -p "Press [ENTER] to continue: "
 done
 
 #------------------------------------------------------------------------------
@@ -112,6 +112,7 @@ function update_min {
 # Create GPT partition tables on each drive, and determine the minimum ending
 # sector boundary over all drives.
 ./center_justify "+" "CREATING PARTITION TABLES"
+read -p "Press [ENTER] to continue: "
 for drive in ${DRIVES[@]}
 do
 	# Erase all GPT data structures and create a fresh GPT.
@@ -124,8 +125,6 @@ echo "End sector number is at ${MIN_END_SECTOR}."
 #------------------------------------------------------------------------------
 # Create partitions on each drive.
 #
-declare -a PARTITIONS
-INDEX=0
 function partition {
 	# Read more on sgdisk here:
 	#		http://www.rodsbooks.com/gdisk/sgdisk-walkthrough.html
@@ -163,72 +162,17 @@ function partition {
 	# Print information about the newly-partitioned disk.
 	sgdisk -p ${drive}
 
-	PARTITIONS[${INDEX}]="${drive}1"
-	INDEX=$(( 1 + ${INDEX} ))
 }
 
 ./center_justify "=" "CREATING PARTITIONS"
 # Create partitions on each drive with appropriate size and labels.
 for drive in ${DRIVES[@]}
 do
-	disk="${drive}"
+	read -p "Press [ENTER] to continue: "
 	partition ${drive}
 	echo $THEMATIC_BREAK
 done
-sleep $DELAY
 
-#------------------------------------------------------------------------------
-# Build the RAID 5 array.
-#
-CHUNK_SIZE=4096
-./center_justify "=" "BUILD RAID ARRAY"
-echo "Creating a RAID 5 array with chunk size of $CHUNK_SIZE on the following"
-echo " partitions: ${PARTITIONS[*]}"
-sleep $DELAY
-mdadm --create \
-	--verbose \
-	--level=5 \
-	--metadata=1.2 \
-	--chunk=${CHUNK_SIZE} \
-	--raid-devices=3 \
-	/dev/md0 \
-	${PARTITIONS[*]}
-
-#------------------------------------------------------------------------------
-# Update the mdadm.conf configuration file.
-#
-echo "Writing out configuration to file"
-echo 'DEVICE partitions' > ./mdadm.conf
-sleep $DELAY
-mdadm --detail --scan >> ./mdadm.conf
-sleep $DELAY
-
-#------------------------------------------------------------------------------
-# Assemble the RAID 5 array.
-#
-echo "Assembling RAID 5 array"
-sleep $DELAY
-mdadm --assemble --scan
-
-#------------------------------------------------------------------------------
-# Format the RAID filesystem.
-#
-./center_justify "=" "FILESYSTEM FORMATTING"
-sleep $DELAY
-BLOCK_SIZE=4096
-# stride = chunk size / block size
-STRIDE=$(( CHUNK_SIZE / BLOCK_SIZE ))
-# stripe width = number of data disks * stride
-STRIPE_WIDTH=$(( STRIDE * (${#PARTITIONS[@]}-1) ))
-
-function create_fs {
-	mkfs.ext4 -v \
-		-L myarray \
-		-m 0 \
-		-b ${BLOCK_SIZE} \
-		-E stride=${STRIDE},stripe-width=${STRIPE_WIDTH} \
-		/dev/md0
-}
-
-create_fs
+read -p "Need to reboot. Press [ENTER] to continue: "
+reboot
 
