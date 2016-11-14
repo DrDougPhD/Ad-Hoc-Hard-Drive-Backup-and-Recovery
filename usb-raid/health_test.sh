@@ -22,14 +22,16 @@ THICK_THEMATIC_BREAK="==========================================================
 
 
 echo -e "Preliminary analysis of USB flash drive at '${drive}'\n"\
+"Unique ID: ${identifier}\n"\
 "Logical sector size: $sector_size bytes\n"\
 "Drive capacity: $human_size, $byte_size bytes\n"\
 $THIN_THEMATIC_BREAK
 
-#sudo badblocks -b ${sector_size}	\
-#	-o ${identifier}.${drive_name}.${human_size}.badblocks.txt	\
-#	-s	\
-#	-v	\
-#	-w	\
-#	$drive
+function tester {
+	sudo badblocks -b ${sector_size}	\
+		-o ${identifier}.${drive_name}._${human_size}_.badblocks.txt	\
+		-s	\
+		-w	\
+		$drive
+}
 
