@@ -35,3 +35,5 @@ function tester {
 		$drive
 }
 
+tester
+
