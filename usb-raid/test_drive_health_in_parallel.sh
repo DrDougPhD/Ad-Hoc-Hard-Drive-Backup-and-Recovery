@@ -9,6 +9,13 @@
 # TODO:
 #
 
+FDISK_FILE="$1"
+if [ -z "$FDISK_FILE" ]
+then
+	echo "Usage: <this_script.sh> /path/to/fdisk_output/file"
+	exit 404
+fi
+
 DISK_NAMES_FILE=disk_names.fdisk.txt
 DISK_IDENTIFIERS_FILE=disk_identifiers.fdisk.txt
 declare -a drives
@@ -37,8 +44,8 @@ function test_dependencies {
 }
 
 function load_names_and_ids {
-	grep "Disk /" usb_drives.fdisk.txt | awk '{ print $2 }' | sed 's/://g' >${DISK_NAMES_FILE}
-	grep "Disk identifier" usb_drives.fdisk.txt | awk '{ print $3 }' >${DISK_IDENTIFIERS_FILE}
+	grep "Disk /" "$FDISK_FILE" | awk '{ print $2 }' | sed 's/://g' >${DISK_NAMES_FILE}
+	grep "Disk identifier" "$FDISK_FILE" | awk '{ print $3 }' >${DISK_IDENTIFIERS_FILE}
 
 	while read drive
 	do
