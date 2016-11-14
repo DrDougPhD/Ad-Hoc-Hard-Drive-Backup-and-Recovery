@@ -13,6 +13,8 @@ drive=$1
 drive_name=$( basename $drive )
 identifier=$2
 sector_size=$(cat /sys/block/${drive_name}/queue/logical_block_size)
+sector_count=$(cat /sys/block/${drive_name}/size)
+byte_size=$(( $sector_count * $sector_size ))
 
 THIN_THEMATIC_BREAK="-------------------------------------------------------------------------------\n"
 THICK_THEMATIC_BREAK="================================================================================\n"
@@ -20,14 +22,13 @@ THICK_THEMATIC_BREAK="==========================================================
 
 echo -e "Preliminary analysis of USB flash drive at '${drive}'\n"\
 "Logical sector size: $sector_size bytes\n"\
+"Drive capacity: $byte_size bytes\n"\
 $THIN_THEMATIC_BREAK
 
 #sudo badblocks -b ${sector_size}	\
-#	-o ${drive_name}.badblocks.txt	\
+#	-o ${identifier}.${drive_name}.badblocks.txt	\
 #	-s	\
 #	-v	\
 #	-w	\
 #	$drive
-#}
-
 
