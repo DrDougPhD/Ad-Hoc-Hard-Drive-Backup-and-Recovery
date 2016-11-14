@@ -19,15 +19,7 @@ function main {
 	test_dependencies
 	load_names_and_ids
 
-	loop_index=0
-	for drive in "${drives[@]}"
-	do
-		id=${identifiers[$loop_index]}
-		echo "Drive: $drive, ID: $id"
-		loop_index=$[$loop_index +1]
-	done
-
-	parallel --link echo :::: $DISK_NAMES_FILE :::: $DISK_IDENTIFIERS_FILE
+	parallel --link ./health_test.sh :::: $DISK_NAMES_FILE :::: $DISK_IDENTIFIERS_FILE
 }
 
 function test_dependencies {
@@ -57,26 +49,6 @@ function load_names_and_ids {
 	do
 		identifiers+=( $id )
 	done < $DISK_IDENTIFIERS_FILE
-}
-
-function test_health {
-	drive=$1
-	drive_name=$( basename $drive )
-	identifier=$2
-	echo "Preliminary analysis of USB flash drive at '${drive}'"
-	echo "--------------------------------------------------------------------------------"
-
-	# Grab the sector size of the specified device.
-	sector_size=$(cat /sys/block/${drive_name}/queue/logical_block_size)
-	echo "Logical sector size: $sector_size bytes"
-
-	#sudo badblocks -b ${sector_size}	\
-	#	-o ${drive_name}.badblocks.txt	\
-	#	-s	\
-	#	-v	\
-	#	-w	\
-	#	$drive
-	#}
 }
 
 main
