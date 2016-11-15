@@ -9,24 +9,14 @@
 # TODO:
 #
 
-FDISK_FILE="$1"
-if [ -z "$FDISK_FILE" ]
-then
-	echo "Usage: <this_script.sh> /path/to/fdisk_output/file"
-	exit 404
-fi
-
-DISK_NAMES_FILE=disk_names.fdisk.txt
-DISK_IDENTIFIERS_FILE=disk_identifiers.fdisk.txt
+DRIVE_INFO_FILE=usb_disks.info.txt
 declare -a drives
-declare -a identifiers
-
 
 function main {
 	test_dependencies
 	load_names_and_ids
 
-	parallel --link ./health_test.sh :::: $DISK_NAMES_FILE :::: $DISK_IDENTIFIERS_FILE
+	#parallel --jobs 0 --link ./health_test.sh :::: $DISK_NAMES_FILE :::: $DISK_IDENTIFIERS_FILE
 }
 
 function test_dependencies {
@@ -44,18 +34,19 @@ function test_dependencies {
 }
 
 function load_names_and_ids {
-	grep "Disk /" "$FDISK_FILE" | awk '{ print $2 }' | sed 's/://g' >${DISK_NAMES_FILE}
-	grep "Disk identifier" "$FDISK_FILE" | awk '{ print $3 }' >${DISK_IDENTIFIERS_FILE}
-
-	while read drive
+	for devlink in /dev/disk/by-id/usb*
 	do
-		drives+=( $drive )
-	done < $DISK_NAMES_FILE
-
-	while read id
-	do
-		identifiers+=( $id )
-	done < $DISK_IDENTIFIERS_FILE
+		devpath=$( readlink -f ${devlink} )
+		devname=$( basename $devpath )
+		devserial=$( udevadm info -p /sys/class/block/${devname}/ --query=property | grep 'ID_SERIAL_SHORT' | awk -F"=" '{ print $2 }'  )
+		sector_size=$(cat /sys/block/${devname}/queue/logical_block_size)
+		sector_count=$(cat /sys/block/${devname}/size)
+		byte_size=$(( $sector_count * $sector_size ))
+		human_size=$( numfmt --to=si --suffix=B --format="%.1f" $byte_size )
+		# human size; device name; serial; bytesize; sector size; sector count; device link
+		echo -e "${human_size}\t${devname}\t${devserial}\t${byte_size}\t${sector_size}\t${sector_count}\t${devlink}" >>${DRIVE_INFO_FILE}
+		echo "${human_size} USB drive at '${devpath}'"
+	done
 }
 
 main
