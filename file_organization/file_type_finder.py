@@ -2,6 +2,12 @@
 """
 
 TODO
+	* For .img files, attempt to mount them and traverse through the files
+	  stored within.
+		* Some of these .img files are entire hard drive images, while others are
+		  partitions.
+		* A more sophisticated strategy for mounting them may be necessary, such
+		  as creating a mount script to accompany those files.
 	* Show average and standard deviation of file-sizes for each extension as
 		a command-line graph
 			e.g.
@@ -19,6 +25,9 @@ TODO
 				    .avi |                                            #         30.4 GB
 				   .flac |                                    #                100.2 GB
 				         +-------------------------------------------------------------
+	* Possible libraries to use:
+		* https://github.com/mkaz/termgraph
+		* https://github.com/glamp/bashplotlib
 
 """
 
