@@ -1,4 +1,26 @@
 #!/usr/bin/env python3
+"""
+
+TODO
+	* Show average and standard deviation of file-sizes for each extension as
+		a command-line graph
+			e.g.
+				filesizes:  1K  10K  100K  1M  10M  100M  1G  10G  100G  1T
+				         +-------------------------------------------------------------
+				    .mkv |               ----+++++#++++----
+				    .avi |                     --++#++--
+				   .flac |                 --++#++--
+				         +-------------------------------------------------------------
+	* Show total consumed space per file-size as a command-line graph
+			e.g.
+				 occupied:  1K  10K  100K  1M  10M  100M  1G  10G  100G  1T  10T
+				         +-------------------------------------------------------------
+				    .mkv |                                                 #     5.2 TB
+				    .avi |                                            #         30.4 GB
+				   .flac |                                    #                100.2 GB
+				         +-------------------------------------------------------------
+
+"""
 
 import os
 import sys
