@@ -36,6 +36,55 @@ import sys
 from collections import defaultdict
 from pprint import pprint
 
+###############################################################################
+"""
+from sqlalchemy import create_engine
+engine = create_engine('sqlite:///:memory:', echo=True)
+
+from sqlalchemy.ext.declarative import declarative_base
+Base = declarative_base()
+
+from sqlalchemy import Column
+from sqlalchemy import Integer
+from sqlalchemy import String
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
+
+class File(Base):
+	__tablename__ = 'files'
+	id = Column(Integer, primary_key=True)
+	directory_id = Column(Integer, ForeignKey('directories.id'))
+	directory = relationship('Directory', back_populates='path')
+	filename = Column(String)
+	extension = Column(String)
+
+	def __repr__(self):
+		return 'stuff'
+
+
+Directory.files = relationship(
+	'File', back_populates='filename'
+)
+
+
+class Directory(Base):
+	__tablename__ = 'directories'
+	id = Column(Integer, primary_key=True)
+	path = Column(String)
+	files_id = Column(Integer, ForeignKey('files.id'))
+	files = relationship('File', back_populates='filename')
+
+	def __repr__(self):
+		return 'stuff'
+
+
+Base.metadata.create_all(engine)
+
+###############################################################################
+from sqlalchemy.orm import sessionmaker
+Session = sessionmaker(bind=engine)
+session = Session()
+"""
 
 def count_file_types_within(directory_to_walk):
 	file_type_counts = defaultdict(int)
