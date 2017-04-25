@@ -41,6 +41,7 @@ import os
 import collections
 import logging
 logger = logging.getLogger(__name__)
+from lib.lineheaderpadded import hr
 
 
 def main(args):
@@ -52,22 +53,32 @@ def main(args):
         sys.exit(1)
 
     # Build a list of files in each of the supplied directories
+    logger.info(hr('Directory walking'))
+    logger.info('Walking target directory')
     files_in_target = list_files(within=args.target)
-
-    files_in_others = collections.defaultdict(set)
-    for other_dir in args.others:
-        found_files = list_files(within=other_dir)
-        for filesize, files in found_files.items():
-            files_in_others[filesize].update(files)
 
     file_count_in_target = file_count_in(directory_listing=files_in_target)
     logger.info('{0: >8} files found within target'.format(
         file_count_in_target))
 
+    logger.info(hr('Walking other directories', '-'))
+    files_in_others = collections.defaultdict(set)
+    for other_dir in args.others:
+        logger.info(other_dir)
+        found_files = list_files(within=other_dir)
+        for filesize, files in found_files.items():
+            files_in_others[filesize].update(files)
+
     file_count_in_others = file_count_in(directory_listing=files_in_others)
     logger.info('{0: >8} files found within other directories'.format(
         file_count_in_others))
 
+    print('-'*80)
+    for filesize, files in files_in_others.items():
+        print(files)
+        for f in files:
+            print(f)
+        break
 
 def file_count_in(directory_listing):
     return sum(map(
@@ -76,12 +87,22 @@ def file_count_in(directory_listing):
 
 
 def list_files(within):
+    if within[-1] != '/':
+        within = within + '/'
+
+    # Clip the file paths returned through walking to only include the path
+    # of a file relative to the "within" directory root.
+    remove_path_before = len(within)
     found_files = collections.defaultdict(set)
     for subdirectory, directory_names, filenames in os.walk(within):
+        relative_subdirectory = subdirectory[remove_path_before:]
+
         for f in filenames:
-            filepath = os.path.join(subdirectory, f)
-            file_size = os.path.getsize(filepath)
-            found_files[file_size] = filepath
+            full_filepath = os.path.join(subdirectory, f)
+            file_size = os.path.getsize(full_filepath)
+
+            relative_filepath = os.path.join(relative_subdirectory, f)
+            found_files[file_size].add((within, relative_filepath))
 
     return found_files
 
@@ -136,15 +157,16 @@ def get_arguments():
                         help='Create a script that can be executed to'
                              ' copy/move the missing files from the source'
                              ' into the target (default: no script)')
-    parser.add_argument('target', metavar='TARGET_DIR', type=os.path.abspath,
+    parser.add_argument('target', metavar='TARGET_DIR',
                         help='The target directory that might not contain'
                              ' files in the other directories.')
-    parser.add_argument('others', metavar='OTHER_DIR', type=os.path.abspath,
+    parser.add_argument('others', metavar='OTHER_DIR',
                         nargs='+', help='The other directories that might'
                                         ' contain files not in the target.')
 
     args = parser.parse_args()
     return args
+
 
 if __name__ == '__main__':
     try:
