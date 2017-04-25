@@ -101,7 +101,8 @@ def main(args):
         script_maker = globals()[args.script_type]
         script_lines = script_maker(missing_files=absent_files,
                                     target_directory=args.target)
-        print('\n'.join(script_lines))
+        with open('synchronize.sh', 'w') as f:
+            f.write('\n'.join(script_lines))
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -118,8 +119,10 @@ def cp(missing_files, target_directory):
 
         # add a line to create the directory path in the target directory
         relative_directory_path = os.path.dirname(relative_file_path)
+        abs_path_of_dir_to_create = os.path.join(target_directory,
+                                                 relative_directory_path)
         script_lines.append(make_directory_template.format(
-            relative_directory_path))
+            abs_path_of_dir_to_create))
 
         # add a command to perform the copying
         source_directory_abs = os.path.abspath(directory)
