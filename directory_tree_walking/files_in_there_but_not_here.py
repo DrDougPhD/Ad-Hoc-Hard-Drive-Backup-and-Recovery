@@ -76,10 +76,72 @@ def main(args):
 
     logger.info(hr('Comparing the files in others to those in target'))
 
+    absent_files = []
     filesize_cluster_count = len(files_in_others)
     with progressbar.ProgressBar(max_value=filesize_cluster_count) as progress:
         for i, (filesize, files) in enumerate(files_in_others.items()):
+
+            # If there were no files found within the target directory that
+            # have the given file size, then record all of the files of that
+            # filesize that exist within the other directories.
+            if filesize not in files_in_target:
+                absent_files.extend(files)
+
             progress.update(i)
+
+    # Print out the missing files.
+    logger.info(hr('Complete'))
+    logger.info('{} files were found in the other directories but absent from'
+                ' the target directory'.format(len(absent_files)))
+    for other_directory, relative_file_path in absent_files:
+        print(os.path.join(other_directory, relative_file_path))
+
+    # Create the copy/move script if the user specified one.
+    if args.script_type is not None:
+        script_maker = globals()[args.script_type]
+        script_lines = script_maker(missing_files=absent_files,
+                                    target_directory=args.target)
+        print('\n'.join(script_lines))
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Script generators
+#
+def cp(missing_files, target_directory):
+    script_lines = []
+    make_directory_template = 'mkdir --parents "{}"'
+    copy_command_template = 'cp -v "{source}" "{destination}"'
+
+    target_directory = os.path.abspath(target_directory)
+
+    for directory, relative_file_path in missing_files:
+
+        # add a line to create the directory path in the target directory
+        relative_directory_path = os.path.dirname(relative_file_path)
+        script_lines.append(make_directory_template.format(
+            relative_directory_path))
+
+        # add a command to perform the copying
+        source_directory_abs = os.path.abspath(directory)
+        script_lines.append(copy_command_template.format(
+            source=os.path.join(source_directory_abs, relative_file_path),
+            destination=os.path.join(target_directory, relative_file_path)))
+
+    return script_lines
+
+
+def rsync():
+    raise NotImplementedError('Rsync script creation is not yet created')
+
+
+def scp():
+    raise NotImplementedError('scp script creation is not yet created')
+
+
+def mv():
+    pass
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 def file_count_in(directory_listing):
