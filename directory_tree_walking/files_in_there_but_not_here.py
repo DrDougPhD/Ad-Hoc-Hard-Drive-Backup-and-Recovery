@@ -87,6 +87,21 @@ def main(args):
             if filesize not in files_in_target:
                 absent_files.extend(files)
 
+            else: #TODO: check this again to see if it is correct
+                other_files_rel_path_keyed = collections.defaultdict(list)
+                for other_dir, rel_path in existing_files:
+                    existing_files_rel_path_keyed[rel_path].append(other_dir)
+
+                existing_files = files_in_target[filesize]
+                for rel_file_path in existing_files:
+                    if rel_file_path not in existing_files_rel_path_keyed:
+                        missing_file_path = os.path.join(files[0][0],
+                                                         rel_file_path)
+                            
+                        absent_files.append(missing_file_path)
+
+                absent_files_of_size = files - existing_files
+
             progress.update(i)
 
     # Print out the missing files.
