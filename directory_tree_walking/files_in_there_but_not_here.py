@@ -42,6 +42,7 @@ import collections
 import logging
 logger = logging.getLogger(__name__)
 from lib.lineheaderpadded import hr
+import progressbar
 
 
 def main(args):
@@ -73,12 +74,13 @@ def main(args):
     logger.info('{0: >8} files found within other directories'.format(
         file_count_in_others))
 
-    print('-'*80)
-    for filesize, files in files_in_others.items():
-        print(files)
-        for f in files:
-            print(f)
-        break
+    logger.info(hr('Comparing the files in others to those in target'))
+
+    filesize_cluster_count = len(files_in_others)
+    with progressbar.ProgressBar(max_value=filesize_cluster_count) as progress:
+        for i, (filesize, files) in enumerate(files_in_others.items()):
+            progress.update(i)
+
 
 def file_count_in(directory_listing):
     return sum(map(
