@@ -105,6 +105,38 @@ def main(args):
             f.write('\n'.join(script_lines))
 
 
+def file_count_in(directory_listing):
+    return sum(map(
+        lambda filesize: len(directory_listing[filesize]),
+        directory_listing.keys()))
+
+
+def list_files(within):
+    if within[-1] != '/':
+        within = within + '/'
+
+    # Clip the file paths returned through walking to only include the path
+    # of a file relative to the "within" directory root.
+    remove_path_before = len(within)
+    found_files = collections.defaultdict(set)
+    for subdirectory, directory_names, filenames in os.walk(within):
+        relative_subdirectory = subdirectory[remove_path_before:]
+
+        for f in filenames:
+            full_filepath = os.path.join(subdirectory, f)
+
+            # skip over symbolic links
+            if os.path.islink(full_filepath):
+                continue
+
+            file_size = os.path.getsize(full_filepath)
+
+            relative_filepath = os.path.join(relative_subdirectory, f)
+            found_files[file_size].add((within, relative_filepath))
+
+    return found_files
+
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Script generators
 #
@@ -145,33 +177,6 @@ def mv():
     pass
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-def file_count_in(directory_listing):
-    return sum(map(
-        lambda filesize: len(directory_listing[filesize]),
-        directory_listing.keys()))
-
-
-def list_files(within):
-    if within[-1] != '/':
-        within = within + '/'
-
-    # Clip the file paths returned through walking to only include the path
-    # of a file relative to the "within" directory root.
-    remove_path_before = len(within)
-    found_files = collections.defaultdict(set)
-    for subdirectory, directory_names, filenames in os.walk(within):
-        relative_subdirectory = subdirectory[remove_path_before:]
-
-        for f in filenames:
-            full_filepath = os.path.join(subdirectory, f)
-            file_size = os.path.getsize(full_filepath)
-
-            relative_filepath = os.path.join(relative_subdirectory, f)
-            found_files[file_size].add((within, relative_filepath))
-
-    return found_files
 
 
 def setup_logger(args):
