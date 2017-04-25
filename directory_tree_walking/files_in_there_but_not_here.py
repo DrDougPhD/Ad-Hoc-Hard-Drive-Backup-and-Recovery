@@ -54,9 +54,25 @@ def main(args):
     # Build a list of files in each of the supplied directories
     files_in_target = list_files(within=args.target)
 
-    files_in_others = []
+    files_in_others = collections.defaultdict(set)
     for other_dir in args.others:
-        files_in_others.append(list_files(within=other_dir))
+        found_files = list_files(within=other_dir)
+        for filesize, files in found_files.items():
+            files_in_others[filesize].update(files)
+
+    file_count_in_target = file_count_in(directory_listing=files_in_target)
+    logger.info('{0: >8} files found within target'.format(
+        file_count_in_target))
+
+    file_count_in_others = file_count_in(directory_listing=files_in_others)
+    logger.info('{0: >8} files found within other directories'.format(
+        file_count_in_others))
+
+
+def file_count_in(directory_listing):
+    return sum(map(
+        lambda filesize: len(directory_listing[filesize]),
+        directory_listing.keys()))
 
 
 def list_files(within):
