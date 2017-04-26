@@ -61,21 +61,19 @@ def main(args):
         sys.exit(1)
 
     # Walk the directories for their constituent files.
-    target_directory = FilesystemWalker(args.target)
+    target_directory = FilesystemWalker(args.target, cache_files=True)
     other_directories = FilesystemWalker(*args.others)
 
     # Identify files that are in the other directories but not in the target.
     missing_files = set()
     for file in other_directories:
-        logger.debug('Is {0} in target directory?'.format(file))
-        """
         if file in target_directory:
             continue
 
         else:
-            logger.debug('{0} found in target directory'.format(file.filename))
+            logger.debug('{0} not found in target directory'.format(
+                             file.filename))
             missing_files.add(file)
-        """
 
     # Create a script that will synchronize the target directory to include
     # the missing files.
@@ -96,7 +94,8 @@ class FilesystemWalker(object):
 
         self.directories = directories
         if cache_files:
-            self.cached_file_info = collections.defaultdict(dict)
+            self.cached_file_info = collections.defaultdict(SameSizedFiles)
+
         else:
             self.cached_file_info = None
 
@@ -138,17 +137,19 @@ class FilesystemWalker(object):
         of the files within the pre-defined directories have been cached, and
         no further walking of the pre-defined directories is needed.
         """
-        # If the __contains__() method is called, then it can be safely assumed
-        # that self.cached_file_info is a dictionary.
+        # If this method is called, then it can be safely assumed that 
+        # self.cached_file_info is a dictionary.
         files_matching_size = self.cached_file_info[file.size]
 
         if file in files_matching_size:
             return True
 
+        """
         else:
             # Continue walking the pre-defined directories.
-            pass
-
+            for found_file in self:
+                self.cached_file_info[found_file.size].add(found_file)
+        """
         return False
 
 
@@ -157,14 +158,22 @@ class SplitPathFile(object):
         self.root = root
         self.relative_directory = relative_directory
         self.filename = filename
+        self.size = os.path.getsize(str(self))
 
     def __str__(self):
         return os.path.join(self.root, self.relative_directory, self.filename)
 
 
-class RedundantFiles(object):
+class SameSizedFiles(object):
     def __init__(self):
-        pass
+        self.files_by_filename = collections.defaultdict(list)
+
+    def __contains__(self, file):
+        logger.debug('Checking if there are any files named "{0}" is within'
+                     ' a directory named "{1}"'.format(
+                         file.filename,
+                         file.relative_directory))
+        return False
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
