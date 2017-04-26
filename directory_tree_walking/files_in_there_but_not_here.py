@@ -163,6 +163,13 @@ class SplitPathFile(object):
     def __str__(self):
         return os.path.join(self.root, self.relative_directory, self.filename)
 
+    def __eq__(self, file):
+        return self.filename == file.filename \
+           and self.relative_directory == file.relative_directory
+        
+    def __hash__(self):
+        return hash(self.relative_directory + self.filename)
+
 
 class SameSizedFiles(object):
     def __init__(self):
@@ -193,6 +200,7 @@ class SameSizedFiles(object):
             logger.debug('No file found with a relative directory'
                          ' "{}"'.format(file.relative_directory))
             return False
+
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
