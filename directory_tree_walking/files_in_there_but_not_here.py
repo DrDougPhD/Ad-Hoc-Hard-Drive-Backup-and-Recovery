@@ -107,13 +107,12 @@ class FilesystemWalker(object):
                     in os.walk(directory_to_walk):
                 for filename in files:
                     # Skip over symbolic links.
-                    if os.path.islink(os.path.join(directory_to_walk,
-                                                   subdirectory,
+                    if os.path.islink(os.path.join(subdirectory,
                                                    filename)):
                         continue
 
                     yield SplitPathFile(root=directory_to_walk,
-                                        relative_directory=subdirectory,
+                                        absolute_directory=subdirectory,
                                         filename=filename) 
 
     def __contains__(self, file):
@@ -154,9 +153,10 @@ class FilesystemWalker(object):
 
 
 class SplitPathFile(object):
-    def __init__(self, root, relative_directory, filename):
+    def __init__(self, root, absolute_directory, filename):
         self.root = root
-        self.relative_directory = relative_directory
+        root_directory_length = len(root)
+        self.relative_directory = absolute_directory[root_directory_length:]
         self.filename = filename
         self.size = os.path.getsize(str(self))
 
