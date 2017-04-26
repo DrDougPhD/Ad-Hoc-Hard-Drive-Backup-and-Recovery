@@ -166,14 +166,33 @@ class SplitPathFile(object):
 
 class SameSizedFiles(object):
     def __init__(self):
-        self.files_by_filename = collections.defaultdict(list)
+        self.files_by_filename = collections.defaultdict(dict)
 
     def __contains__(self, file):
         logger.debug('Checking if there are any files named "{0}" is within'
                      ' a directory named "{1}"'.format(
                          file.filename,
                          file.relative_directory))
-        return False
+        files_matching_filename = self.files_by_filename[file.filename]
+
+        # If there are no files matching the filename and matching the
+        # relative directory path, then the file has not been encountered yet.
+        if file.relative_directory in files_matching_filename:
+            cached_file = files_matching_filename[file.filename]
+            if file == cached_file:
+                logger.debug('Match found:')
+                logger.debug('\tSearched file: {}'.format(file))
+                logger.debug('\tFound file:    {}'.format(file))
+                return True
+
+            else:
+                logger.debug('No file found named "{}"'.format(file.filename))
+                return False
+
+        else:
+            logger.debug('No file found with a relative directory'
+                         ' "{}"'.format(file.relative_directory))
+            return False
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
