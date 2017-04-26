@@ -67,13 +67,14 @@ def main(args):
     # Identify files that are in the other directories but not in the target.
     missing_files = set()
     for file in other_directories:
-        logger.debug('Searching to see if {0} exists in the target'
-                     ' directory'.format(file.filename))
+        logger.debug('Is {0} in target directory?'.format(file))
         """
         if file in target_directory:
             continue
 
-        missing_files.add(file)
+        else:
+            logger.debug('{0} found in target directory'.format(file.filename))
+            missing_files.add(file)
         """
 
     # Create a script that will synchronize the target directory to include
@@ -157,7 +158,8 @@ class SplitPathFile(object):
         self.relative_directory = relative_directory
         self.filename = filename
 
-        logger.debug(os.path.join(root, relative_directory, filename))
+    def __str__(self):
+        return os.path.join(self.root, self.relative_directory, self.filename)
 
 
 class RedundantFiles(object):
