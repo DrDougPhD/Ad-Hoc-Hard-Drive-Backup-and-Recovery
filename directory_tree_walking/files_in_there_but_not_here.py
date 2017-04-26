@@ -27,11 +27,18 @@ LICENSE
 
 	Copyright 2017  - GNU GPLv3
 
+
+TODO
+
+    Implement interprocess-communicating threading, where the walking of the
+    target directory communicates with the walkers of the other directories.
+
 """
 
 __appname__ = 'files_in_there_but_not_here'
 __version__ = '0.0pre0'
 __license__ = 'GNU GPLv3'
+__indev__ = True
 
 
 import argparse
@@ -53,6 +60,150 @@ def main(args):
         logger.warning('Execution is aborted.')
         sys.exit(1)
 
+    # Walk the directories for their constituent files.
+    target_directory = FilesystemWalker(args.target)
+    other_directories = FilesystemWalker(*args.others)
+
+    # Identify files that are in the other directories but not in the target.
+    missing_files = set()
+    for file in other_directories:
+        logger.debug('Searching to see if {0} exists in the target'
+                     ' directory'.format(file.filename))
+        """
+        if file in target_directory:
+            continue
+
+        missing_files.add(file)
+        """
+
+    # Create a script that will synchronize the target directory to include
+    # the missing files.
+    """
+    if args.script_type:
+        script_builder = globals()[args.script_type]
+        synchronizing_script = script_builder(missing_files)
+        synchronizing_script.write(to=args.script_destination)
+    """
+
+
+class FilesystemWalker(object):
+    def __init__(self, *directories, cache_files=False):
+        logger.debug('Walking will occur within {} directories:'.format(
+                         len(directories)))
+        for directory in directories:
+            logger.debug('\t{}'.format(directory))
+
+        self.directories = directories
+        if cache_files:
+            self.cached_file_info = collections.defaultdict(dict)
+        else:
+            self.cached_file_info = None
+
+    def __iter__(self):
+        for directory_to_walk in self.directories:
+            logger.info('Walking through files in {}'.format(
+                            directory_to_walk))
+            for subdirectory, directory_names, files\
+                    in os.walk(directory_to_walk):
+                for filename in files:
+                    # Skip over symbolic links.
+                    if os.path.islink(os.path.join(directory_to_walk,
+                                                   subdirectory,
+                                                   filename)):
+                        continue
+
+                    yield SplitPathFile(root=directory_to_walk,
+                                        relative_directory=subdirectory,
+                                        filename=filename) 
+
+    def __contains__(self, file):
+        """
+        Determine if the given file is within one of the predefined
+        directories. This is accomplished by referencing the cache of
+        files within those directories or by continuing the walking of the
+        directories.
+        If a file is found in the cache such that (1) is is the same size
+        as the given file, and (2) its relative path to its root directory
+        is equal to the relative path to the given file's root directory,
+        then True is returned.
+        If no such file is found in the cache, then the walking of the pre-
+        defined directories is started / continued. Each encountered file is
+        cached. While walking, if a file is found with the same size as the
+        given file, then its relative path to its root directory is compared
+        with the relative path of the given file's. If they are equal, then
+        walking is paused and True is returned.
+        If the walking of the pre-defined directories is exhausted without
+        finding an equivalent file, then False is returned. At this point, all
+        of the files within the pre-defined directories have been cached, and
+        no further walking of the pre-defined directories is needed.
+        """
+        # If the __contains__() method is called, then it can be safely assumed
+        # that self.cached_file_info is a dictionary.
+        files_matching_size = self.cached_file_info[file.size]
+
+        if file in files_matching_size:
+            return True
+
+        else:
+            # Continue walking the pre-defined directories.
+            pass
+
+        return False
+
+
+class SplitPathFile(object):
+    def __init__(self, root, relative_directory, filename):
+        self.root = root
+        self.relative_directory = relative_directory
+        self.filename = filename
+
+        logger.debug(os.path.join(root, relative_directory, filename))
+
+
+class RedundantFiles(object):
+    def __init__(self):
+        pass
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Script generators
+#
+class FileSynchronizerScriptBuilder(object):
+    make_directory_template = 'mkdir --parents "{}"\n'
+
+    def __init__(self, files):
+        self.files = files
+
+
+    def write(self, to):
+        with open(to, 'w') as script:
+            for file in self.files:
+                script.write(self.make_directory_template.format(
+                    file.destination_absolute_directory_path()))
+                script.write(self.command_template.format(
+                    file.source_absolute_file_path(),
+                    file.destination_absolute_directory_path()))
+
+
+class CopyFileSynchronizerScriptBuilder(FileSynchronizerScriptBuilder):
+    command_template = 'cp -v "{0}" "{1}"\n'
+
+
+class RsyncFileSynchronizerScriptBuilder(FileSynchronizerScriptBuilder):
+    command_template = ''
+
+
+class MoveFileSynchronizerScriptBuilder(FileSynchronizerScriptBuilder):
+    command_template = ''
+
+
+cp = CopyFileSynchronizerScriptBuilder
+rsync = RsyncFileSynchronizerScriptBuilder
+mv = MoveFileSynchronizerScriptBuilder
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+def tmp():
     # Build a list of files in each of the supplied directories
     logger.info(hr('Directory walking'))
     logger.info('Walking target directory')
@@ -152,48 +303,6 @@ def list_files(within):
     return found_files
 
 
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Script generators
-#
-def cp(missing_files, target_directory):
-    script_lines = []
-    make_directory_template = 'mkdir --parents "{}"'
-    copy_command_template = 'cp -v "{source}" "{destination}"'
-
-    target_directory = os.path.abspath(target_directory)
-
-    for directory, relative_file_path in missing_files:
-
-        # add a line to create the directory path in the target directory
-        relative_directory_path = os.path.dirname(relative_file_path)
-        abs_path_of_dir_to_create = os.path.join(target_directory,
-                                                 relative_directory_path)
-        script_lines.append(make_directory_template.format(
-            abs_path_of_dir_to_create))
-
-        # add a command to perform the copying
-        source_directory_abs = os.path.abspath(directory)
-        script_lines.append(copy_command_template.format(
-            source=os.path.join(source_directory_abs, relative_file_path),
-            destination=os.path.join(target_directory, relative_file_path)))
-
-    return script_lines
-
-
-def rsync():
-    raise NotImplementedError('Rsync script creation is not yet created')
-
-
-def scp():
-    raise NotImplementedError('scp script creation is not yet created')
-
-
-def mv():
-    pass
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 def setup_logger(args):
     logger.setLevel(logging.DEBUG)
     # create file handler which logs even debug messages
@@ -236,7 +345,8 @@ def get_arguments():
                         default=False,
                         help='Output file paths should be absolute paths'
                              ' (default: False - relative paths)')
-    parser.add_argument('-v', '--verbose', action='store_true', default=False,
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        default=__indev__,
                         help='Enable debugging messages (default: False)')
     parser.add_argument('-s', '--create-copy-script', dest='script_type',
                         choices=['cp', 'rsync', 'scp', 'mv'],
