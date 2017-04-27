@@ -1,0 +1,445 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+SYNOPSIS
+
+	python files_in_there_but_not_here.py [-h,--help] [-v,--verbose]
+
+
+DESCRIPTION
+
+	Given a target directory and a list of other directories, list the files
+    that exist within the other directories but are absent within the target.
+
+
+ARGUMENTS
+
+	-h, --help	        show this help message and exit
+	-v, --verbose       verbose output
+
+
+AUTHOR
+
+	Doug McGeehan <djmvfb@mst.edu>
+
+
+LICENSE
+
+	Copyright 2017  - GNU GPLv3
+
+
+TODO
+
+    Implement interprocess-communicating threading, where the walking of the
+    target directory communicates with the walkers of the other directories.
+
+"""
+
+__appname__ = 'files_in_there_but_not_here'
+__version__ = '0.0pre0'
+__license__ = 'GNU GPLv3'
+__indev__ = True
+
+
+import argparse
+from datetime import datetime
+import sys
+import os
+import collections
+import logging
+logger = logging.getLogger(__name__)
+from lib.lineheaderpadded import hr
+import progressbar
+
+
+def main(args):
+    # Verify that the target directory is not listed twice
+    if args.target in args.others:
+        logger.warning("It's not useful to have the target directory also"
+                       " be in the other directories.")
+        logger.warning('Execution is aborted.')
+        sys.exit(1)
+
+    # Walk the directories for their constituent files.
+    target_directory = FilesystemWalker(args.target, cache_files=True)
+    other_directories = FilesystemWalker(*args.others)
+
+    # Identify files that are in the other directories but not in the target.
+    missing_files = set()
+    for file in other_directories:
+        if file in target_directory:
+            continue
+
+        else:
+            logger.debug('{0} not found in target directory'.format(
+                             file.filename))
+            missing_files.add(file)
+
+    # Create a script that will synchronize the target directory to include
+    # the missing files.
+    """
+    if args.script_type:
+        script_builder = globals()[args.script_type]
+        synchronizing_script = script_builder(missing_files)
+        synchronizing_script.write(to=args.script_destination)
+    """
+
+
+class FilesystemWalker(object):
+    def __init__(self, *directories, cache_files=False):
+        logger.debug('Walking will occur within {} directories:'.format(
+                         len(directories)))
+        for directory in directories:
+            logger.debug('\t{}'.format(directory))
+
+        self.directories = directories
+        if cache_files:
+            self.cached_file_info = collections.defaultdict(SameSizedFiles)
+
+        else:
+            self.cached_file_info = None
+
+    def __iter__(self):
+        for directory_to_walk in self.directories:
+            logger.info('Walking through files in {}'.format(
+                            directory_to_walk))
+            for subdirectory, directory_names, files\
+                    in os.walk(directory_to_walk):
+                for filename in files:
+                    # Skip over symbolic links.
+                    if os.path.islink(os.path.join(subdirectory,
+                                                   filename)):
+                        continue
+
+                    yield SplitPathFile(root=directory_to_walk,
+                                        absolute_directory=subdirectory,
+                                        filename=filename) 
+
+    def __contains__(self, file):
+        """
+        Determine if the given file is within one of the predefined
+        directories. This is accomplished by referencing the cache of
+        files within those directories or by continuing the walking of the
+        directories.
+        If a file is found in the cache such that (1) is is the same size
+        as the given file, and (2) its relative path to its root directory
+        is equal to the relative path to the given file's root directory,
+        then True is returned.
+        If no such file is found in the cache, then the walking of the pre-
+        defined directories is started / continued. Each encountered file is
+        cached. While walking, if a file is found with the same size as the
+        given file, then its relative path to its root directory is compared
+        with the relative path of the given file's. If they are equal, then
+        walking is paused and True is returned.
+        If the walking of the pre-defined directories is exhausted without
+        finding an equivalent file, then False is returned. At this point, all
+        of the files within the pre-defined directories have been cached, and
+        no further walking of the pre-defined directories is needed.
+        """
+        # If this method is called, then it can be safely assumed that 
+        # self.cached_file_info is a dictionary.
+        files_matching_size = self.cached_file_info[file.size]
+
+        if file in files_matching_size:
+            return True
+
+        """
+        else:
+            # Continue walking the pre-defined directories.
+            for found_file in self:
+                self.cached_file_info[found_file.size].add(found_file)
+        """
+        return False
+
+
+class SplitPathFile(object):
+    def __init__(self, root, absolute_directory, filename):
+        self.root = root
+        root_directory_length = len(root)
+        self.relative_directory = absolute_directory[root_directory_length:]
+        self.filename = filename
+        self.size = os.path.getsize(str(self))
+
+    def __str__(self):
+        return os.path.join(self.root, self.relative_directory, self.filename)
+
+    def __eq__(self, file):
+        return self.filename == file.filename \
+           and self.relative_directory == file.relative_directory
+        
+    def __hash__(self):
+        return hash(self.relative_directory + self.filename)
+
+
+class SameSizedFiles(object):
+    def __init__(self):
+        self.files_by_filename = collections.defaultdict(dict)
+
+    def __contains__(self, file):
+        logger.debug('Checking if there are any files named "{0}" is within'
+                     ' a directory named "{1}"'.format(
+                         file.filename,
+                         file.relative_directory))
+        files_matching_filename = self.files_by_filename[file.filename]
+
+        # If there are no files matching the filename and matching the
+        # relative directory path, then the file has not been encountered yet.
+        if file.relative_directory in files_matching_filename:
+            cached_file = files_matching_filename[file.filename]
+            if file == cached_file:
+                logger.debug('Match found:')
+                logger.debug('\tSearched file: {}'.format(file))
+                logger.debug('\tFound file:    {}'.format(file))
+                return True
+
+            else:
+                logger.debug('No file found named "{}"'.format(file.filename))
+                return False
+
+        else:
+            logger.debug('No file found with a relative directory'
+                         ' "{}"'.format(file.relative_directory))
+            return False
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Script generators
+#
+class FileSynchronizerScriptBuilder(object):
+    make_directory_template = 'mkdir --parents "{}"\n'
+
+    def __init__(self, files):
+        self.files = files
+
+
+    def write(self, to):
+        with open(to, 'w') as script:
+            for file in self.files:
+                script.write(self.make_directory_template.format(
+                    file.destination_absolute_directory_path()))
+                script.write(self.command_template.format(
+                    file.source_absolute_file_path(),
+                    file.destination_absolute_directory_path()))
+
+
+class CopyFileSynchronizerScriptBuilder(FileSynchronizerScriptBuilder):
+    command_template = 'cp -v "{0}" "{1}"\n'
+
+
+class RsyncFileSynchronizerScriptBuilder(FileSynchronizerScriptBuilder):
+    command_template = ''
+
+
+class MoveFileSynchronizerScriptBuilder(FileSynchronizerScriptBuilder):
+    command_template = ''
+
+
+cp = CopyFileSynchronizerScriptBuilder
+rsync = RsyncFileSynchronizerScriptBuilder
+mv = MoveFileSynchronizerScriptBuilder
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+def tmp():
+    # Build a list of files in each of the supplied directories
+    logger.info(hr('Directory walking'))
+    logger.info('Walking target directory')
+    files_in_target = list_files(within=args.target)
+
+    file_count_in_target = file_count_in(directory_listing=files_in_target)
+    logger.info('{0: >8} files found within target'.format(
+        file_count_in_target))
+
+    logger.info(hr('Walking other directories', '-'))
+    files_in_others = collections.defaultdict(set)
+    for other_dir in args.others:
+        logger.info(other_dir)
+        found_files = list_files(within=other_dir)
+        for filesize, files in found_files.items():
+            files_in_others[filesize].update(files)
+
+    file_count_in_others = file_count_in(directory_listing=files_in_others)
+    logger.info('{0: >8} files found within other directories'.format(
+        file_count_in_others))
+
+    logger.info(hr('Comparing the files in others to those in target'))
+
+    absent_files = []
+    filesize_cluster_count = len(files_in_others)
+    with progressbar.ProgressBar(max_value=filesize_cluster_count) as progress:
+        for i, (filesize, files) in enumerate(files_in_others.items()):
+
+            # If there were no files found within the target directory that
+            # have the given file size, then record all of the files of that
+            # filesize that exist within the other directories.
+            if filesize not in files_in_target:
+                absent_files.extend(files)
+
+            else: #TODO: check this again to see if it is correct
+                other_files_rel_path_keyed = collections.defaultdict(list)
+                for other_dir, rel_path in existing_files:
+                    existing_files_rel_path_keyed[rel_path].append(other_dir)
+
+                existing_files = files_in_target[filesize]
+                for rel_file_path in existing_files:
+                    if rel_file_path not in existing_files_rel_path_keyed:
+                        missing_file_path = os.path.join(files[0][0],
+                                                         rel_file_path)
+                            
+                        absent_files.append(missing_file_path)
+
+                absent_files_of_size = files - existing_files
+
+            progress.update(i)
+
+    # Print out the missing files.
+    logger.info(hr('Complete'))
+    logger.info('{} files were found in the other directories but absent from'
+                ' the target directory'.format(len(absent_files)))
+    for other_directory, relative_file_path in absent_files:
+        print(os.path.join(other_directory, relative_file_path))
+
+    # Create the copy/move script if the user specified one.
+    if args.script_type is not None:
+        script_maker = globals()[args.script_type]
+        script_lines = script_maker(missing_files=absent_files,
+                                    target_directory=args.target)
+        with open('synchronize.sh', 'w') as f:
+            f.write('\n'.join(script_lines))
+
+
+def file_count_in(directory_listing):
+    return sum(map(
+        lambda filesize: len(directory_listing[filesize]),
+        directory_listing.keys()))
+
+
+def list_files(within):
+    if within[-1] != '/':
+        within = within + '/'
+
+    # Clip the file paths returned through walking to only include the path
+    # of a file relative to the "within" directory root.
+    remove_path_before = len(within)
+    found_files = collections.defaultdict(set)
+    for subdirectory, directory_names, filenames in os.walk(within):
+        relative_subdirectory = subdirectory[remove_path_before:]
+
+        for f in filenames:
+            full_filepath = os.path.join(subdirectory, f)
+
+            # skip over symbolic links
+            if os.path.islink(full_filepath):
+                continue
+
+            file_size = os.path.getsize(full_filepath)
+
+            relative_filepath = os.path.join(relative_subdirectory, f)
+            found_files[file_size].add((within, relative_filepath))
+
+    return found_files
+
+
+def setup_logger(args):
+    logger.setLevel(logging.DEBUG)
+    # create file handler which logs even debug messages
+    # todo: place them in a log directory, or add the time to the log's
+    # filename, or append to pre-existing log
+    log_file = os.path.join('/tmp', '.log')
+    fh = logging.FileHandler(log_file)
+    fh.setLevel(logging.DEBUG)
+    # create console handler with a higher log level
+    ch = logging.StreamHandler()
+
+    if args.verbose:
+        ch.setLevel(logging.DEBUG)
+    else:
+        ch.setLevel(logging.INFO)
+
+    # create formatter and add it to the handlers
+    line_numbers_and_function_name = logging.Formatter(
+        "%(levelname)s [%(filename)s:%(lineno)s - %(funcName)20s() ] "
+        "%(message)s")
+    fh.setFormatter(line_numbers_and_function_name)
+    ch.setFormatter(line_numbers_and_function_name)
+    # add the handlers to the logger
+    logger.addHandler(fh)
+    logger.addHandler(ch)
+
+
+def get_arguments():
+    parser = argparse.ArgumentParser(
+        description="Description printed to command-line if -h is called."
+    )
+    # during development, I set default to False so I don't have to keep
+    # calling this with -v
+    parser.add_argument('-o', '--output-file', dest='output_filepath',
+                        type=os.path.abspath, default=None,
+                        help='The output file to write the paths of the'
+                             ' absent files (default: write to stdout).')
+    parser.add_argument('-a', '--as-absolute-paths',
+                        dest='format_paths_to_absolute', action='store_true',
+                        default=False,
+                        help='Output file paths should be absolute paths'
+                             ' (default: False - relative paths)')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        default=__indev__,
+                        help='Enable debugging messages (default: False)')
+    parser.add_argument('-s', '--create-copy-script', dest='script_type',
+                        choices=['cp', 'rsync', 'scp', 'mv'],
+                        default=None,
+                        help='Create a script that can be executed to'
+                             ' copy/move the missing files from the source'
+                             ' into the target (default: no script)')
+    parser.add_argument('target', metavar='TARGET_DIR',
+                        help='The target directory that might not contain'
+                             ' files in the other directories.')
+    parser.add_argument('others', metavar='OTHER_DIR',
+                        nargs='+', help='The other directories that might'
+                                        ' contain files not in the target.')
+
+    args = parser.parse_args()
+    return args
+
+
+if __name__ == '__main__':
+    try:
+        start_time = datetime.now()
+
+        args = get_arguments()
+        setup_logger(args)
+
+        # figure out which argument key is the longest so that all the
+        # parameters can be printed out nicely
+        logger.debug('Command-line arguments:')
+        length_of_longest_key = len(max(vars(args).keys(),
+                                        key=lambda k: len(k)))
+        for arg in vars(args):
+            value = getattr(args, arg)
+            logger.debug('\t{argument_key}:\t{value}'.format(
+                argument_key=arg.rjust(length_of_longest_key, ' '),
+                value=value))
+
+        logger.debug(start_time)
+
+        main(args)
+
+        finish_time = datetime.now()
+        logger.debug(finish_time)
+        logger.debug('Execution time: {time}'.format(
+            time=(finish_time - start_time)
+        ))
+        logger.debug("#" * 20 + " END EXECUTION " + "#" * 20)
+
+        sys.exit(0)
+
+    except KeyboardInterrupt as e:  # Ctrl-C
+        raise e
+
+    except SystemExit as e:  # sys.exit()
+        raise e
+
+    except Exception as e:
+        logger.exception("Something happened and I don't know what to do D:")
+        sys.exit(1)
