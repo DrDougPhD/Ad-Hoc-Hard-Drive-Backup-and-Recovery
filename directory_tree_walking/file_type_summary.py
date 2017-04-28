@@ -65,7 +65,10 @@ def main(args):
         target_directory = args.target
 
     total_size = 0
+    num_files = 0
     for subdirectory, directory_names, files in os.walk(target_directory):
+        num_files += len(files)
+
         for filename in files:
             file_path = os.path.join(subdirectory, filename)
 
@@ -114,6 +117,35 @@ def main(args):
             bar='+'*int(100*summed_size_percentage),
             percentage=summed_size_percentage,
             filesize=summed_size_pretty_print,
+        ))
+
+    print('{space}└{border}┤'.format(
+        space=' '*(max_extension_length+1),
+        border='─'*100,
+    ))
+
+    # Print file numbers
+    print('{space}  {directory}'.format(
+        space=' '*(max_extension_length+1),
+        directory=target_directory,
+    ))
+    print('{space}┌{border}┤'.format(
+        space=' '*(max_extension_length+1),
+        border='─'*100,
+    ))
+    sorted_file_sizes = sorted(
+        [(k, len(file_type_sizes[k])) for k in file_type_sizes],
+        key=lambda x: x[1],
+        reverse=True
+    )
+    for extension, num_files_per_type in sorted_file_sizes:
+        summed_size_percentage = num_files_per_type / num_files
+
+        print('{extension} │ {bar}   ({percentage:.1%}, {file_count} files)'.format(
+            extension=extension.rjust(max_extension_length, ' '),
+            bar='+'*int(100*summed_size_percentage),
+            percentage=summed_size_percentage,
+            file_count=num_files_per_type,
         ))
 
     print('{space}└{border}┤'.format(
