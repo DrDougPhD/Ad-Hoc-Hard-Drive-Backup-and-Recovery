@@ -86,9 +86,34 @@ def main(args):
             reference_files.add(os.path.join(relative_subdirectory,
                                              filename))
 
-    missing_files = reference_files - target_files
+    missing_files = sorted(reference_files - target_files)
     for file in missing_files:
         print(file)
+
+    with open('missing_files.txt', 'w') as output_file:
+        output_file.write('\n'.join(map(
+            lambda rel_path: os.path.join(args.reference, rel_path),
+            missing_files)
+        ))
+        output_file.write('\n')
+
+    with open('rectify.sh', 'w') as copying_script:
+        previously_made_directory = args.target
+        for file in missing_files:
+            relative_directory = os.path.dirname(file)
+            absolute_directory_to_target = os.path.join(args.target,
+                                                        relative_directory)
+            if previously_made_directory != absolute_directory_to_target:
+                copying_script.write('mkdir --parents "{}"\n'.format(
+                    absolute_directory_to_target
+                ))
+
+            copying_script.write('cp -v "{source}" "{dest_dir}"\n'.format(
+                source=os.path.join(args.reference, file),
+                dest_dir=absolute_directory_to_target
+            ))
+
+            previously_made_directory = absolute_directory_to_target
 
 
 def setup_logger(args):
