@@ -48,10 +48,6 @@ import os
 import collections
 import logging
 logger = logging.getLogger(__name__)
-from threading import Thread
-
-
-found_files = {}
 
 
 def main(args):
@@ -62,17 +58,21 @@ def main(args):
         logger.warning('Execution is aborted.')
         sys.exit(1)
 
-    found_files[args.target] = set()
-    found_files[args.reference] = set()
 
 
+    # Walk the directories for their constituent files.
+    print('Walking target directory')
+    target_files = walker(args.target)
 
-    print('Calculating difference')
-    missing_files = sorted(found_files[args.reference] - found_files[args.target])
+    print('Walking reference directory')
+    reference_files = walker(args.reference)
+
+    print('Calculating missing files')
+    missing_files = sorted(reference_files - target_files)
     for file in missing_files:
         print(file)
 
-    print('Writing to file')
+    print('Writing missing files to file')
     with open('missing_files.txt', 'w') as output_file:
         output_file.write('\n'.join(map(
             lambda rel_path: os.path.join(args.reference, rel_path),
@@ -80,16 +80,7 @@ def main(args):
         ))
         output_file.write('\n')
 
-    reference_walker = Thread(target=walk, args=(args.reference,))
-    target_walker = Thread(target=walk, args=(args.target,))
-
-    reference_walker.start()
-    target_walker.start()
-
-    reference_walker.join()
-    target_walker.join()
-
-    print('Creating rectifier script')
+    print('Creating rectifying script')
     with open('rectify.sh', 'w') as copying_script:
         previously_made_directory = args.target
         for file in missing_files:
@@ -109,11 +100,11 @@ def main(args):
             previously_made_directory = absolute_directory_to_target
 
 
-def walk(directory):
+def walker(directory):
     # Walk the directories for their constituent files.
     print('Walking directory:\t{}'.format(directory))
     relative_subdirectory_index = len(directory)
-    found_files_here = found_files[directory]
+    found_files_here = set()
     for i, (subdirectory, directory_names, files)\
             in enumerate(os.walk(directory)):
         relative_subdirectory = subdirectory[relative_subdirectory_index:]
@@ -127,6 +118,17 @@ def walk(directory):
 
             if i % 5000 == 0:
                 print('{0}:\t{1}'.format(directory, filename))
+
+    return found_files_here
+
+
+def walk_error(oserror):
+    with open('errors.log', 'w+') as error_log:
+        error_log.write('{}\n'.format(oserror.strerror))
+        if hasattr(oserror, 'filename'):
+            error_log.write('{}\n'.format(oserror.filename))
+
+    print('Error: {}'.format(oserror.strerror))
 
 
 def setup_logger(args):
