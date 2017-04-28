@@ -38,7 +38,7 @@ TODO
 __appname__ = 'files_in_there_but_not_here'
 __version__ = '0.0pre0'
 __license__ = 'GNU GPLv3'
-__indev__ = True
+__indev__ = False
 
 
 import argparse
@@ -66,14 +66,35 @@ def main(args):
 
     # Identify files that are in the other directories but not in the target.
     missing_files = set()
+    found_files = set()
     for file in other_directories:
         if file in target_directory:
-            continue
+            logger.debug('{0} found in target directory'.format(file.filename))
+            found_files.add(file)
 
         else:
             logger.debug('{0} not found in target directory'.format(
                              file.filename))
             missing_files.add(file)
+
+    # # Verify these files exist
+    # for f in found_files:
+    #     assert os.path.exists(os.path.join(args.target,
+    #                                        f.relative_directory,
+    #                                        f.filename)),(
+    #            '{0} was supposed to to be in {1}, but could not be '
+    #            'found'.format(os.path.join(f.relative_relative, f.filename),
+    #                           args.target))
+    #
+    for f in missing_files:
+        # assert not os.path.exists(os.path.join(args.target,
+        #                                        f.relative_directory,
+        #                                        f.filename)), (
+        #            '{0} was supposed to to be in {1}, but could not be '
+        #            'found'.format(os.path.join(f.relative_directory,
+        #                                        f.filename),
+        #                           args.target))
+        print(f)
 
     # Create a script that will synchronize the target directory to include
     # the missing files.
@@ -86,14 +107,14 @@ def main(args):
 
 
 class FilesystemWalker(object):
-    def __init__(self, *directories, cache_files=False):
+    def __init__(self, *directories, **kwargs):#cache_files=False):
         logger.debug('Walking will occur within {} directories:'.format(
                          len(directories)))
         for directory in directories:
             logger.debug('\t{}'.format(directory))
 
         self.directories = directories
-        if cache_files:
+        if 'cache_files' in kwargs and kwargs['cache_files']:
             self.cached_file_info = collections.defaultdict(SameSizedFiles)
 
         else:
@@ -142,10 +163,14 @@ class FilesystemWalker(object):
         # self.cached_file_info is a dictionary.
         files_matching_size = self.cached_file_info[file.size]
 
+        print('='*80)
+        print('Searching for cached file:')
         if file in files_matching_size:
+            print('Cached file of size {}'.format(file.size))
             return True
 
         else:
+            print('No cached files of size {}'.format(file.size))
             # Continue walking the pre-defined directories.
             if self.filesystem_walker_generator is None:
                 self.filesystem_walker_generator = iter(self)
@@ -164,7 +189,7 @@ class SplitPathFile(object):
         root_directory_length = len(root)
         self.relative_directory = absolute_directory[root_directory_length:]
         self.filename = filename
-        self.size = os.path.getsize(str(self))
+        self.size = os.path.getsize(os.path.join(absolute_directory, filename))
 
     def __str__(self):
         return os.path.join(self.root, self.relative_directory, self.filename)
@@ -182,48 +207,36 @@ class SameSizedFiles(object):
         self.files_by_filename = collections.defaultdict(dict)
 
     def __contains__(self, file):
-        logger.debug('Checking if there are any files named "{0}" is within'
-                     ' a directory named "{1}"'.format(
-                         file.filename,
-                         file.relative_directory))
-        # print('Checking if there are any files named "{0}" is within'
+        # logger.debug('Checking if there are any files named "{0}" within'
         #              ' a directory named "{1}"'.format(
-        #     file.filename,
-        #     file.relative_directory))
+        #                  file.filename,
+        #                  file.relative_directory))
+
         files_matching_filename = self.files_by_filename[file.filename]
 
         # If there are no files matching the filename and matching the
         # relative directory path, then the file has not been encountered yet.
         if file.relative_directory in files_matching_filename:
-            # print('Match found:')
-            # print('\tSearched file: {}'.format(file))
-            # print('\tFound files:')#    {}'.format(file))
+            # logger.debug('Match found:')
+            # logger.debug('\tSearched file: {}'.format(file))
+            # logger.debug('\tFound files:')
             #
             # cached_files = files_matching_filename[file.relative_directory]
             # for found_file in cached_files:
-            #     print('\t               {}'.format(found_file))
-
+            #     logger.debug('\t               {}'.format(found_file))
+            # logger.debug(hr(''))
             return True
 
-            # cached_file = files_matching_filename[file.relative_directory]
-            # if file == cached_file:
-            #     logger.debug('Match found:')
-            #     logger.debug('\tSearched file: {}'.format(file))
-            #     logger.debug('\tFound file:    {}'.format(file))
-            #     return True
-            #
-            # else:
-            #     logger.debug('No file found named "{}"'.format(file.filename))
-            #     return False
-
         else:
-            logger.debug('No file found with a relative directory'
-                         ' "{}"'.format(file.relative_directory))
-            print('No file found with a relative directory'
-                         ' "{}"'.format(file.relative_directory))
+            # logger.debug('No file found with a relative directory'
+            #              ' "{}"'.format(file.relative_directory))
+            # logger.debug(hr(''))
             return False
 
     def add(self, file):
+        logger.debug('Adding {0} to files of size {1}'.format(
+            file.filename, file.size
+        ))
         files_matching_filename = self.files_by_filename[file.filename]
         if file.relative_directory not in files_matching_filename:
             files_matching_filename[file.relative_directory] = []
