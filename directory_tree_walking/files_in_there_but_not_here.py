@@ -48,8 +48,10 @@ import os
 import collections
 import logging
 logger = logging.getLogger(__name__)
-from lib.lineheaderpadded import hr
-import progressbar
+from threading import Thread
+
+
+found_files = {}
 
 
 def main(args):
@@ -60,36 +62,17 @@ def main(args):
         logger.warning('Execution is aborted.')
         sys.exit(1)
 
-    # Walk the directories for their constituent files.
-    relative_subdirectory_index = len(args.target)
-    target_files = set()
-    for subdirectory, directory_names, files in os.walk(args.target):
-        relative_subdirectory = subdirectory[relative_subdirectory_index:]
-        for filename in files:
-            # Skip over symbolic links.
-            if os.path.islink(os.path.join(subdirectory,
-                                           filename)):
-                continue
+    found_files[args.target] = set()
+    found_files[args.reference] = set()
 
-            target_files.add(os.path.join(relative_subdirectory, filename))
 
-    reference_files = set()
-    relative_subdirectory_index = len(args.reference)
-    for subdirectory, directory_names, files in os.walk(args.reference):
-        relative_subdirectory = subdirectory[relative_subdirectory_index:]
-        for filename in files:
-            # Skip over symbolic links.
-            if os.path.islink(os.path.join(subdirectory,
-                                           filename)):
-                continue
 
-            reference_files.add(os.path.join(relative_subdirectory,
-                                             filename))
-
-    missing_files = sorted(reference_files - target_files)
+    print('Calculating difference')
+    missing_files = sorted(found_files[args.reference] - found_files[args.target])
     for file in missing_files:
         print(file)
 
+    print('Writing to file')
     with open('missing_files.txt', 'w') as output_file:
         output_file.write('\n'.join(map(
             lambda rel_path: os.path.join(args.reference, rel_path),
@@ -97,6 +80,16 @@ def main(args):
         ))
         output_file.write('\n')
 
+    reference_walker = Thread(target=walk, args=(args.reference,))
+    target_walker = Thread(target=walk, args=(args.target,))
+
+    reference_walker.start()
+    target_walker.start()
+
+    reference_walker.join()
+    target_walker.join()
+
+    print('Creating rectifier script')
     with open('rectify.sh', 'w') as copying_script:
         previously_made_directory = args.target
         for file in missing_files:
@@ -114,6 +107,26 @@ def main(args):
             ))
 
             previously_made_directory = absolute_directory_to_target
+
+
+def walk(directory):
+    # Walk the directories for their constituent files.
+    print('Walking directory:\t{}'.format(directory))
+    relative_subdirectory_index = len(directory)
+    found_files_here = found_files[directory]
+    for i, (subdirectory, directory_names, files)\
+            in enumerate(os.walk(directory)):
+        relative_subdirectory = subdirectory[relative_subdirectory_index:]
+        for filename in files:
+            # Skip over symbolic links.
+            if os.path.islink(os.path.join(subdirectory,
+                                           filename)):
+                continue
+
+            found_files_here.add(os.path.join(relative_subdirectory, filename))
+
+            if i % 5000 == 0:
+                print('{0}:\t{1}'.format(directory, filename))
 
 
 def setup_logger(args):
