@@ -48,8 +48,6 @@ import os
 import collections
 import logging
 logger = logging.getLogger(__name__)
-from lib.lineheaderpadded import hr
-import progressbar
 
 
 def main(args):
@@ -61,35 +59,18 @@ def main(args):
         sys.exit(1)
 
     # Walk the directories for their constituent files.
-    relative_subdirectory_index = len(args.target)
-    target_files = set()
-    for subdirectory, directory_names, files in os.walk(args.target):
-        relative_subdirectory = subdirectory[relative_subdirectory_index:]
-        for filename in files:
-            # Skip over symbolic links.
-            if os.path.islink(os.path.join(subdirectory,
-                                           filename)):
-                continue
+    print('Walking target directory')
+    target_files = walker(args.target)
 
-            target_files.add(os.path.join(relative_subdirectory, filename))
+    print('Walking reference directory')
+    reference_files = walker(args.reference)
 
-    reference_files = set()
-    relative_subdirectory_index = len(args.reference)
-    for subdirectory, directory_names, files in os.walk(args.reference):
-        relative_subdirectory = subdirectory[relative_subdirectory_index:]
-        for filename in files:
-            # Skip over symbolic links.
-            if os.path.islink(os.path.join(subdirectory,
-                                           filename)):
-                continue
-
-            reference_files.add(os.path.join(relative_subdirectory,
-                                             filename))
-
+    print('Calculating missing files')
     missing_files = sorted(reference_files - target_files)
     for file in missing_files:
         print(file)
 
+    print('Writing missing files to file')
     with open('missing_files.txt', 'w') as output_file:
         output_file.write('\n'.join(map(
             lambda rel_path: os.path.join(args.reference, rel_path),
@@ -97,6 +78,7 @@ def main(args):
         ))
         output_file.write('\n')
 
+    print('Creating rectifying script')
     with open('rectify.sh', 'w') as copying_script:
         previously_made_directory = args.target
         for file in missing_files:
@@ -114,6 +96,33 @@ def main(args):
             ))
 
             previously_made_directory = absolute_directory_to_target
+
+
+def walker(directory):
+    found_files = set()
+    relative_subdirectory_index = len(directory)
+    for subdirectory, directory_names, files in os.walk(directory,
+                                                        onerror=walk_error):
+        relative_subdirectory = subdirectory[relative_subdirectory_index:]
+        for filename in files:
+            # Skip over symbolic links.
+            if os.path.islink(os.path.join(subdirectory,
+                                           filename)):
+                continue
+
+            found_files.add(os.path.join(relative_subdirectory,
+                                         filename))
+
+    return found_files
+
+
+def walk_error(oserror):
+    with open('errors.log', 'w+') as error_log:
+        error_log.write('{}\n'.format(oserror.strerror))
+        if hasattr(oserror, 'filename'):
+            error_log.write('{}\n'.format(oserror.filename))
+
+    print('Error: {}'.format(oserror.strerror))
 
 
 def setup_logger(args):
