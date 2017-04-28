@@ -99,6 +99,8 @@ class FilesystemWalker(object):
         else:
             self.cached_file_info = None
 
+        self.filesystem_walker_generator = None
+
     def __iter__(self):
         for directory_to_walk in self.directories:
             logger.info('Walking through files in {}'.format(
@@ -143,12 +145,16 @@ class FilesystemWalker(object):
         if file in files_matching_size:
             return True
 
-        """
         else:
             # Continue walking the pre-defined directories.
-            for found_file in self:
+            if self.filesystem_walker_generator is None:
+                self.filesystem_walker_generator = iter(self)
+
+            for found_file in self.filesystem_walker_generator:
                 self.cached_file_info[found_file.size].add(found_file)
-        """
+                if found_file == file:
+                    return True
+
         return False
 
 
@@ -180,27 +186,49 @@ class SameSizedFiles(object):
                      ' a directory named "{1}"'.format(
                          file.filename,
                          file.relative_directory))
+        # print('Checking if there are any files named "{0}" is within'
+        #              ' a directory named "{1}"'.format(
+        #     file.filename,
+        #     file.relative_directory))
         files_matching_filename = self.files_by_filename[file.filename]
 
         # If there are no files matching the filename and matching the
         # relative directory path, then the file has not been encountered yet.
         if file.relative_directory in files_matching_filename:
-            cached_file = files_matching_filename[file.filename]
-            if file == cached_file:
-                logger.debug('Match found:')
-                logger.debug('\tSearched file: {}'.format(file))
-                logger.debug('\tFound file:    {}'.format(file))
-                return True
+            # print('Match found:')
+            # print('\tSearched file: {}'.format(file))
+            # print('\tFound files:')#    {}'.format(file))
+            #
+            # cached_files = files_matching_filename[file.relative_directory]
+            # for found_file in cached_files:
+            #     print('\t               {}'.format(found_file))
 
-            else:
-                logger.debug('No file found named "{}"'.format(file.filename))
-                return False
+            return True
+
+            # cached_file = files_matching_filename[file.relative_directory]
+            # if file == cached_file:
+            #     logger.debug('Match found:')
+            #     logger.debug('\tSearched file: {}'.format(file))
+            #     logger.debug('\tFound file:    {}'.format(file))
+            #     return True
+            #
+            # else:
+            #     logger.debug('No file found named "{}"'.format(file.filename))
+            #     return False
 
         else:
             logger.debug('No file found with a relative directory'
                          ' "{}"'.format(file.relative_directory))
+            print('No file found with a relative directory'
+                         ' "{}"'.format(file.relative_directory))
             return False
 
+    def add(self, file):
+        files_matching_filename = self.files_by_filename[file.filename]
+        if file.relative_directory not in files_matching_filename:
+            files_matching_filename[file.relative_directory] = []
+
+        files_matching_filename[file.relative_directory].append(file)
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
