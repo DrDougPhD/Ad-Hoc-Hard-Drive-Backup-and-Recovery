@@ -244,12 +244,20 @@ class CommandLineHorizontalPlot(object):
             lines.append('{margin} │ {bar}'
                          '   ({percentage:.1%}, {filesize})'.format(
                 margin=self.margin(key=extension),
-                bar='+' * int(100 * summed_size_percentage),
+                bar=self.internal_data_line(value=summed_size_for_extension,
+                                            max_value=max_value),
                 percentage=summed_size_percentage,
                 filesize=summed_size_pretty_print,
             ))
 
         return lines
+
+    def internal_data_line(self, value, max_value, width=100, char='+'):
+        percentage = value / max_value
+        data_chars = '+' * int(width*percentage)
+        padded_data_line = data_chars.ljust(width)
+        return padded_data_line
+
 
 
 def setup_logger(args):
