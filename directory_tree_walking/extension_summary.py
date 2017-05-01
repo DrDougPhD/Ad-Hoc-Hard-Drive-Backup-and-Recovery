@@ -112,90 +112,37 @@ class DirectorySummary(object):
                     parent_directory = os.path.dirname(parent_directory)
 
     def print(self):
-        cli_plot = CommandLineHorizontalPlot(
+        cli_plot = CommandLineHorizontalPlot(data=self.file_type_sizes)
+        cli_plot.plot(
             title='Space Allocation per Extension: {}'.format(self.root),
-            keys=self.file_type_sizes.keys(),
-        )
-        cli_plot.plot(data=self.file_type_sizes, max_value=self.total_size)
+            max_value=self.total_size,
+            aggregate_fn=sum,
+            value_fmt_fn=lambda x: size(x, system=si).rjust(4))
+        cli_plot.plot(
+            title='File Counts per Extension: {}'.format(self.root),
+            max_value= self.num_files,
+            aggregate_fn=len)
 
-        # max_extension_length = len(max(self.file_type_sizes.keys(), key=len))
-        #
-        # # Print summed sizes
-        # print('{space}  Space Allocation per Extension: {directory}'.format(
-        #     space=' ' * (max_extension_length + 1),
-        #     directory=self.root,
-        # ))
-        # print('{space}┌{border}┤'.format(
-        #     space=' ' * (max_extension_length + 1),
-        #     border='─' * 100,
-        # ))
-        # sorted_file_sizes = sorted(
-        #     [(k, sum(self.file_type_sizes[k])) for k in self.file_type_sizes],
-        #     key=lambda x: x[1],
-        #     reverse=True
-        # )
-        # for extension, summed_size_for_extension in sorted_file_sizes:
-        #     summed_size_pretty_print = size(summed_size_for_extension,
-        #                                     system=si)
-        #     summed_size_percentage = summed_size_for_extension/self.total_size
-        #
-        #     print('{extension} │ {bar}   ({percentage:.1%}, {filesize})'.format(
-        #         extension=extension.rjust(max_extension_length, ' '),
-        #         bar='+' * int(100 * summed_size_percentage),
-        #         percentage=summed_size_percentage,
-        #         filesize=summed_size_pretty_print,
-        #     ))
-        #
-        # print('{space}└{border}┤\n'.format(
-        #     space=' ' * (max_extension_length + 1),
-        #     border='─' * 100,
-        # ))
-        #
-        # # Print file numbers
-        # print('{space}  File Counts per Extension in {directory}'.format(
-        #     space=' ' * (max_extension_length + 1),
-        #     directory=self.root,
-        # ))
-        # print('{space}┌{border}┤'.format(
-        #     space=' ' * (max_extension_length + 1),
-        #     border='─' * 100,
-        # ))
-        # sorted_file_sizes = sorted(
-        #     [(k, len(self.file_type_sizes[k])) for k in self.file_type_sizes],
-        #     key=lambda x: x[1],
-        #     reverse=True
-        # )
-        # for extension, num_files_per_type in sorted_file_sizes:
-        #     summed_size_percentage = num_files_per_type / self.num_files
-        #
-        #     print(
-        #         '{extension} │ {bar}   ({percentage:.1%}, {file_count} files)'.format(
-        #             extension=extension.rjust(max_extension_length, ' '),
-        #             bar='+' * int(100 * summed_size_percentage),
-        #             percentage=summed_size_percentage,
-        #             file_count=num_files_per_type,
-        #         ))
-        #
-        # print('{space}└{border}┤\n'.format(
-        #     space=' ' * (max_extension_length + 1),
-        #     border='─' * 100,
-        # ))
 
     def plot(self):
         pass
 
 
 class CommandLineHorizontalPlot(object):
-    def __init__(self, title, keys):
-        self.title = title
-        self.axis_keys = keys
-        self.max_key_length = len(max(keys, key=len))
+    def __init__(self, data):
+        self.data = data
+        self.max_key_length = len(max(data.keys(), key=len))
 
-    def plot(self, data, max_value):
-        title = self.generate_title()
+    def plot(self, max_value, title, aggregate_fn, value_fmt_fn=None):
+        if value_fmt_fn is None:
+            value_fmt_fn = lambda x: x
+
+        title = self.generate_title(title)
         top_border = self.generate_horizontal_border(corner='┌')
-        plot_lines = self.generate_internal_plotlines(data=data,
-                                                      max_value=max_value)
+        plot_lines = self.generate_internal_plotlines(data=self.data,
+                                                      max_value=max_value,
+                                                      aggregate_fn=aggregate_fn,
+                                                      value_fmt_fn=value_fmt_fn)
         bottom_border = self.generate_horizontal_border(corner='└')
 
         plot_content = '\n'.join([
@@ -207,10 +154,10 @@ class CommandLineHorizontalPlot(object):
         print(plot_content)
 
 
-    def generate_title(self):
+    def generate_title(self, title):
         title = '{margin}   {title}'.format(
             margin=self.margin(),
-            title=self.title,
+            title=title,
         )
         return title
 
@@ -228,11 +175,12 @@ class CommandLineHorizontalPlot(object):
         )
         return border
 
-    def generate_internal_plotlines(self, data, max_value):
+    def generate_internal_plotlines(self, data, max_value, aggregate_fn,
+                                    value_fmt_fn):
         lines = []
 
         sorted_file_sizes = sorted(
-            [(k, sum(data[k])) for k in data],
+            [(k, aggregate_fn(data[k])) for k in data],
             key=lambda x: x[1],
             reverse=True
         )
@@ -240,8 +188,9 @@ class CommandLineHorizontalPlot(object):
             summed_size_percentage = summed_size_for_extension / max_value
             summed_size_perc_str = '{:.1%}'.format(summed_size_percentage)\
                                            .rjust(5)
-            summed_human_size = size(summed_size_for_extension,
-                                     system=si).rjust(4)
+            summed_human_size = value_fmt_fn(summed_size_for_extension)
+            # summed_human_size = size(summed_size_for_extension,
+            #                          system=si).rjust(4)
 
             lines.append('{margin} │{bar}│'
                          ' {percentage}, {filesize}'.format(
