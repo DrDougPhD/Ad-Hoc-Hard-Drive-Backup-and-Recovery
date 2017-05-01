@@ -179,25 +179,23 @@ class CommandLineHorizontalPlot(object):
                                     value_fmt_fn):
         lines = []
 
-        sorted_file_sizes = sorted(
+        sorted_and_aggregated_data = sorted(
             [(k, aggregate_fn(data[k])) for k in data],
             key=lambda x: x[1],
             reverse=True
         )
-        for extension, summed_size_for_extension in sorted_file_sizes:
-            summed_size_percentage = summed_size_for_extension / max_value
-            summed_size_perc_str = '{:.1%}'.format(summed_size_percentage)\
-                                           .rjust(5)
-            summed_human_size = value_fmt_fn(summed_size_for_extension)
-            # summed_human_size = size(summed_size_for_extension,
-            #                          system=si).rjust(4)
+        for key, value in sorted_and_aggregated_data:
+            percentage = value / max_value
+            percentage_string = '{:.1%}'.format(percentage)\
+                                        .rjust(5)
+            formatted_value = value_fmt_fn(value)
 
             lines.append('{margin} │{bar}│'
-                         ' {percentage}, {filesize}'.format(
-                margin=self.margin(key=extension),
-                bar=self.internal_data_line(percentage=summed_size_percentage),
-                percentage=summed_size_perc_str,
-                filesize=summed_human_size,
+                         ' {percentage}, {value}'.format(
+                margin=self.margin(key=key),
+                bar=self.internal_data_line(percentage=percentage),
+                percentage=percentage_string,
+                value=formatted_value,
             ))
 
         return lines
