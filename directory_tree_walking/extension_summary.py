@@ -46,8 +46,7 @@ import sys
 import os
 import collections
 import logging
-from hurry.filesize import size
-from hurry.filesize import si
+import hurry.filesize as filesize
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +116,8 @@ class DirectorySummary(object):
             title='Space Allocation per Extension: {}'.format(self.root),
             max_value=self.total_size,
             aggregate_fn=sum,
-            value_fmt_fn=lambda x: size(x, system=si).rjust(4))
+            value_fmt_fn=lambda x: filesize.size(x, system=filesize.si)
+                                           .rjust(4))
         cli_plot.plot(
             title='File Counts per Extension: {}'.format(self.root),
             max_value= self.num_files,
