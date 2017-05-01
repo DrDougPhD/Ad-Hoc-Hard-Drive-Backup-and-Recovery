@@ -1,3 +1,4 @@
+import os
 import unittest
 import random
 random.seed(0)
@@ -28,7 +29,7 @@ class FileSynchronizerScriptBuilderTest(unittest.TestCase):
 
 
 def create_temp_file(directory, size):
-    os.makedirs(directory, exist_ok=True):
+    os.makedirs(directory, exist_ok=True)
     filename = str(random.randint(0, 100001))
     file = os.path.join(directory, filename)
 

@@ -119,7 +119,7 @@ def main(args):
             filesize=summed_size_pretty_print,
         ))
 
-    print('{space}└{border}┤'.format(
+    print('{space}└{border}┤\n'.format(
         space=' '*(max_extension_length+1),
         border='─'*100,
     ))
@@ -148,7 +148,7 @@ def main(args):
             file_count=num_files_per_type,
         ))
 
-    print('{space}└{border}┤'.format(
+    print('{space}└{border}┤\n'.format(
         space=' '*(max_extension_length+1),
         border='─'*100,
     ))
