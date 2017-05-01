@@ -237,23 +237,23 @@ class CommandLineHorizontalPlot(object):
             reverse=True
         )
         for extension, summed_size_for_extension in sorted_file_sizes:
-            summed_size_pretty_print = size(summed_size_for_extension,
-                                            system=si)
             summed_size_percentage = summed_size_for_extension / max_value
+            summed_size_perc_str = '{:.1%}'.format(summed_size_percentage)\
+                                           .rjust(5)
+            summed_human_size = size(summed_size_for_extension,
+                                     system=si).rjust(4)
 
-            lines.append('{margin} │ {bar}'
-                         '   ({percentage:.1%}, {filesize})'.format(
+            lines.append('{margin} │{bar}│'
+                         ' {percentage}, {filesize}'.format(
                 margin=self.margin(key=extension),
-                bar=self.internal_data_line(value=summed_size_for_extension,
-                                            max_value=max_value),
-                percentage=summed_size_percentage,
-                filesize=summed_size_pretty_print,
+                bar=self.internal_data_line(percentage=summed_size_percentage),
+                percentage=summed_size_perc_str,
+                filesize=summed_human_size,
             ))
 
         return lines
 
-    def internal_data_line(self, value, max_value, width=100, char='+'):
-        percentage = value / max_value
+    def internal_data_line(self, percentage, width=100, char='+'):
         data_chars = '+' * int(width*percentage)
         padded_data_line = data_chars.ljust(width)
         return padded_data_line
