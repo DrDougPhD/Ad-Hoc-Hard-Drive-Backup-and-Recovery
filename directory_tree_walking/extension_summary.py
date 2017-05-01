@@ -112,71 +112,144 @@ class DirectorySummary(object):
                     parent_directory = os.path.dirname(parent_directory)
 
     def print(self):
-        max_extension_length = len(max(self.file_type_sizes.keys(), key=len))
+        cli_plot = CommandLineHorizontalPlot(
+            title='Space Allocation per Extension: {}'.format(self.root),
+            keys=self.file_type_sizes.keys(),
+        )
+        cli_plot.plot(data=self.file_type_sizes, max_value=self.total_size)
 
-        # Print summed sizes
-        print('{space}  {directory}'.format(
-            space=' ' * (max_extension_length + 1),
-            directory=self.root,
-        ))
-        print('{space}┌{border}┤'.format(
-            space=' ' * (max_extension_length + 1),
+        # max_extension_length = len(max(self.file_type_sizes.keys(), key=len))
+        #
+        # # Print summed sizes
+        # print('{space}  Space Allocation per Extension: {directory}'.format(
+        #     space=' ' * (max_extension_length + 1),
+        #     directory=self.root,
+        # ))
+        # print('{space}┌{border}┤'.format(
+        #     space=' ' * (max_extension_length + 1),
+        #     border='─' * 100,
+        # ))
+        # sorted_file_sizes = sorted(
+        #     [(k, sum(self.file_type_sizes[k])) for k in self.file_type_sizes],
+        #     key=lambda x: x[1],
+        #     reverse=True
+        # )
+        # for extension, summed_size_for_extension in sorted_file_sizes:
+        #     summed_size_pretty_print = size(summed_size_for_extension,
+        #                                     system=si)
+        #     summed_size_percentage = summed_size_for_extension/self.total_size
+        #
+        #     print('{extension} │ {bar}   ({percentage:.1%}, {filesize})'.format(
+        #         extension=extension.rjust(max_extension_length, ' '),
+        #         bar='+' * int(100 * summed_size_percentage),
+        #         percentage=summed_size_percentage,
+        #         filesize=summed_size_pretty_print,
+        #     ))
+        #
+        # print('{space}└{border}┤\n'.format(
+        #     space=' ' * (max_extension_length + 1),
+        #     border='─' * 100,
+        # ))
+        #
+        # # Print file numbers
+        # print('{space}  File Counts per Extension in {directory}'.format(
+        #     space=' ' * (max_extension_length + 1),
+        #     directory=self.root,
+        # ))
+        # print('{space}┌{border}┤'.format(
+        #     space=' ' * (max_extension_length + 1),
+        #     border='─' * 100,
+        # ))
+        # sorted_file_sizes = sorted(
+        #     [(k, len(self.file_type_sizes[k])) for k in self.file_type_sizes],
+        #     key=lambda x: x[1],
+        #     reverse=True
+        # )
+        # for extension, num_files_per_type in sorted_file_sizes:
+        #     summed_size_percentage = num_files_per_type / self.num_files
+        #
+        #     print(
+        #         '{extension} │ {bar}   ({percentage:.1%}, {file_count} files)'.format(
+        #             extension=extension.rjust(max_extension_length, ' '),
+        #             bar='+' * int(100 * summed_size_percentage),
+        #             percentage=summed_size_percentage,
+        #             file_count=num_files_per_type,
+        #         ))
+        #
+        # print('{space}└{border}┤\n'.format(
+        #     space=' ' * (max_extension_length + 1),
+        #     border='─' * 100,
+        # ))
+
+    def plot(self):
+        pass
+
+
+class CommandLineHorizontalPlot(object):
+    def __init__(self, title, keys):
+        self.title = title
+        self.axis_keys = keys
+        self.max_key_length = len(max(keys, key=len))
+
+    def plot(self, data, max_value):
+        title = self.generate_title()
+        top_border = self.generate_horizontal_border(corner='┌')
+        plot_lines = self.generate_internal_plotlines(data=data,
+                                                      max_value=max_value)
+        bottom_border = self.generate_horizontal_border(corner='└')
+
+        plot_content = '\n'.join([
+            title,
+            top_border,
+            *plot_lines,
+            bottom_border,
+        ]) + '\n'
+        print(plot_content)
+
+
+    def generate_title(self):
+        title = '{margin}   {title}'.format(
+            margin=self.margin(),
+            title=self.title,
+        )
+        return title
+
+    def margin(self, key=None):
+        if key is None:
+            key = ' '
+
+        return key.rjust(self.max_key_length)
+
+    def generate_horizontal_border(self, corner):
+        border = '{margin} {corner}{border}┤'.format(
+            margin=self.margin(),
+            corner=corner,
             border='─' * 100,
-        ))
+        )
+        return border
+
+    def generate_internal_plotlines(self, data, max_value):
+        lines = []
+
         sorted_file_sizes = sorted(
-            [(k, sum(self.file_type_sizes[k])) for k in self.file_type_sizes],
+            [(k, sum(data[k])) for k in data],
             key=lambda x: x[1],
             reverse=True
         )
         for extension, summed_size_for_extension in sorted_file_sizes:
             summed_size_pretty_print = size(summed_size_for_extension,
                                             system=si)
-            summed_size_percentage = summed_size_for_extension/self.total_size
+            summed_size_percentage = summed_size_for_extension / max_value
 
-            print('{extension} │ {bar}   ({percentage:.1%}, {filesize})'.format(
-                extension=extension.rjust(max_extension_length, ' '),
+            lines.append('{margin} │ {bar}'
+                         '   ({percentage:.1%}, {filesize})'.format(
+                margin=self.margin(key=extension),
                 bar='+' * int(100 * summed_size_percentage),
                 percentage=summed_size_percentage,
                 filesize=summed_size_pretty_print,
             ))
 
-        print('{space}└{border}┤\n'.format(
-            space=' ' * (max_extension_length + 1),
-            border='─' * 100,
-        ))
-
-        # Print file numbers
-        print('{space}  {directory}'.format(
-            space=' ' * (max_extension_length + 1),
-            directory=self.root,
-        ))
-        print('{space}┌{border}┤'.format(
-            space=' ' * (max_extension_length + 1),
-            border='─' * 100,
-        ))
-        sorted_file_sizes = sorted(
-            [(k, len(self.file_type_sizes[k])) for k in self.file_type_sizes],
-            key=lambda x: x[1],
-            reverse=True
-        )
-        for extension, num_files_per_type in sorted_file_sizes:
-            summed_size_percentage = num_files_per_type / self.num_files
-
-            print(
-                '{extension} │ {bar}   ({percentage:.1%}, {file_count} files)'.format(
-                    extension=extension.rjust(max_extension_length, ' '),
-                    bar='+' * int(100 * summed_size_percentage),
-                    percentage=summed_size_percentage,
-                    file_count=num_files_per_type,
-                ))
-
-        print('{space}└{border}┤\n'.format(
-            space=' ' * (max_extension_length + 1),
-            border='─' * 100,
-        ))
-
-    def plot(self):
-        pass
+        return lines
 
 
 def setup_logger(args):
