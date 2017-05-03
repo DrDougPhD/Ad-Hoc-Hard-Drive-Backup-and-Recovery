@@ -183,6 +183,25 @@ class DirectorySummary(object):
         #             directory_path, ext_stats_in_dir[extension]
         #         ))
         #     #sorted_directories_by_max_portion.sort(key=lambda)
+        plot = DirectoryBreakdownFigure(extension_stats=dominating_extensions)
+        plot.plot(save_to='extension_breakdown.pdf')
+
+
+import matplotlib.pyplot as plt
+class DirectoryBreakdownFigure(object):
+    def __init__(self, extension_stats):
+        self.extension_stats = extension_stats
+
+    def plot(self, save_to):
+        verticle_space = 50
+        horizontal_space = 10
+
+        figure, axis = plt.subplots(
+            figsize=(verticle_space, horizontal_space))
+        plt.show()
+
+
+
 
 
 class DirectoryExtensionStats(object):
