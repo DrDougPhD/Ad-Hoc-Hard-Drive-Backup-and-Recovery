@@ -216,6 +216,7 @@ class DirectoryBreakdownFigure(object):
         # create the bar for each directory
         directory_labels = []
         y_val = 0
+        right_y_axis = axes.twinx()
         for ext, dominated_ext_stats in self.extension_stats.items():
 
             for directory_stats in dominated_ext_stats:
@@ -227,8 +228,8 @@ class DirectoryBreakdownFigure(object):
                 # every horizontal bar created for this directory will be
                 #  located on the same y height
                 num_bars = len(bar_widths)
-                y_vals = numpy.zeros(num_bars) + y_val
-                axes.barh(bottom=y_vals,
+                y_vals = numpy.zeros(num_bars) + y_val + .5
+                right_y_axis.barh(bottom=y_vals,
                           width=bar_widths,
                           height=1,
                           left=bar_offsets,
@@ -242,13 +243,13 @@ class DirectoryBreakdownFigure(object):
 
         # add directories to the right of the plot
         y_ticks = numpy.arange(len(directory_labels))+0.5
-        right_y_axis = axes.twinx()
         right_y_axis.set_yticks(y_ticks)
         right_y_axis.set_yticklabels(directory_labels)
         right_y_axis.tick_params(axis='y', which='both', length=0)
         right_y_axis.invert_yaxis()
         axes.set_xlim([0, 1])
         axes.set_ylim([0, self.plot_height])
+        right_y_axis.set_ylim([0, self.plot_height])
         axes.invert_xaxis()
 
         # hide the tickmarks on the left y-axis
