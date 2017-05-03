@@ -34,6 +34,7 @@ TODO
     target directory communicates with the walkers of the other directories.
 
 """
+from lib.lineheaderpadded import hr
 
 __appname__ = 'files_in_there_but_not_here'
 __version__ = '0.0pre0'
@@ -56,6 +57,7 @@ def main(args):
     summary.walk()
     summary.print()
     summary.plot()
+
 
 class DirectorySummary(object):
     def __init__(self, root):
@@ -129,6 +131,38 @@ class DirectorySummary(object):
 
 
     def plot(self):
+        # partition directories by their dominating extension
+        dominating_extensions = {k: [] for k in self.file_type_sizes.keys()}
+        for directory_path, extension_stats in \
+                self.directory_based_file_types.items():
+
+            stats = DirectoryExtensionStats(path=directory_path,
+                                            extension_stats=extension_stats)
+            dominating_extensions[stats.dominating_ext].append(stats)
+
+        logger.debug(hr('Dominating Extentions'))
+        for extension in list(dominating_extensions.keys()):
+            ext_stats = dominating_extensions[extension]
+            if not ext_stats:
+                del dominating_extensions[extension]
+                continue
+
+            ext_stats.sort(
+                key=lambda stats: stats.proportion_files_with_dominating_ext,
+                reverse=True)
+
+            logger.debug(hr(extension, '-'))
+            for stats in ext_stats:
+                stats.summary()
+                stats.sort_extensions()
+
+        # Print out summary of the walked directories
+        logger.debug(hr('Summary'))
+
+        num_unique_extensions = len(self.file_type_sizes)
+        logger.debug('Number of unique extension: {}'.format(
+            num_unique_extensions))
+
         num_subdirectories = len(self.directory_based_file_types)
         logger.debug('{0} subdirectories contained within {1}'.format(
             num_subdirectories, self.root
@@ -140,39 +174,6 @@ class DirectorySummary(object):
         logger.debug('Max length of directory path: {} chars'.format(
             max_length_of_leaf_directory_path))
 
-        # partition directories by their dominating extension
-        dominating_extensions = {k: {} for k in self.file_type_sizes.keys()}
-        for directory_path, extension_stats in \
-                self.directory_based_file_types.items():
-
-            stats = DirectoryExtensionStats(path=directory_path,
-                                            extension_stats=extension_stats)
-
-            # dominating_ext_in_dir = max(extension_stats.keys(),
-            #                             key=lambda k: len(extension_stats[k]))
-            #
-            # ext_count_pairs = map(lambda k: (k, len(extension_stats[k])),
-            #                       extension_stats.keys())
-            # ext_count_pairs = sorted(ext_count_pairs,
-            #                          key=lambda x: x[1],
-            #                          reverse=True)
-            # num_files_within_dir = sum(map(lambda v: v[1],
-            #                                ext_count_pairs))
-            # ext_portion_pairs = list(map(
-            #     lambda v: (v[0], float(v[1])/num_files_within_dir),
-            #     ext_count_pairs))
-            #
-            # dominating_extensions[dominating_ext_in_dir][directory_path] = \
-            #     ext_portion_pairs
-            #
-            # logger.debug(directory_path)
-            # logger.debug('Dominated by: {0: >7} - {1: >6}, {2: >4}'.format(
-            #     ext_portion_pairs[0][0],
-            #     '{:.1%}'.format(ext_portion_pairs[0][1]),
-            #     filesize.size(
-            #         sum(extension_stats[dominating_ext_in_dir]),
-            #         system=filesize.si
-            # )))
 
         # ordered_directories = collections.OrderedDict()
         # for extension, path_stats in dominating_extensions.items():
@@ -187,32 +188,59 @@ class DirectorySummary(object):
 class DirectoryExtensionStats(object):
     def __init__(self, path, extension_stats):
         self.path = path
+        self.extension_stats = extension_stats
 
+        ext, count, space, proportional_count = self._determine_dominating_ext(
+            extension_stats)
+        self.dominating_ext = ext
+        self.num_files_with_dominating_ext = count
+        self.space_allocated_to_dominating_ext = space
+        self.proportion_files_with_dominating_ext = proportional_count
+
+    def _determine_dominating_ext(self, extension_stats):
         # determine the extension that dominates this path
-        self.dominating_ext = ext = max(extension_stats.keys(),
-                                        key=lambda k: len(extension_stats[k]))
-        self.dominating_ext_count = len(extension_stats[ext])
-        self.dominating_ext_space = sum(extension_stats[ext])
+        ext = max(extension_stats.keys(),
+                  key=lambda k: len(extension_stats[k]))
+        count = len(extension_stats[ext])
+        space = sum(extension_stats[ext])
 
         # count the total number of files within this directory
         ext_count_pairs = map(lambda k: (k, len(extension_stats[k])),
                               extension_stats.keys())
-        num_files_within_dir = sum(map(lambda v: v[1],
+        self.num_files_within_dir = sum(map(lambda v: v[1],
                                        ext_count_pairs))
-
         # record the proportion of files within this directory that have the
         # dominating extension
-        self.dominating_ext_count_portion =\
-            self.dominating_ext_count / num_files_within_dir
+        proportion = count / self.num_files_within_dir
+        return ext, count, space, proportion
 
-        logger.debug(path)
+    def summary(self):
+        logger.debug(self.path)
         logger.debug('Dominated by: {0: >7} - {1: >6}, {2: >4}'.format(
-            ext,
-            '{:.1%}'.format(self.dominating_ext_count_portion),
-            filesize.size(
-                sum(extension_stats[ext]),
-                system=filesize.si
-            )))
+                self.dominating_ext,
+                '{:.1%}'.format(self.proportion_files_with_dominating_ext),
+                filesize.size(self.space_allocated_to_dominating_ext,
+                              system=filesize.si)
+            ))
+
+    def sort_extensions(self):
+        ext_portion_pair = map(lambda x: (x, len(self.extension_stats[x])),
+                               self.extension_stats.keys())
+        ext_portion_pair = sorted(ext_portion_pair,
+                                  key=lambda x: x[1],
+                                  reverse=True)
+        sorted_extensions = collections.OrderedDict()
+        for ext, portion in ext_portion_pair:
+            sorted_extensions[ext] = portion/self.num_files_within_dir
+
+        self.sorted_extensions = sorted_extensions
+
+        logger.debug('┌─────────┬─────────┐')
+        for ext, portion in sorted_extensions.items():
+            logger.debug('│ {0: ^7} │ {1: ^7} │'.format(
+                ext,
+                '{:.1%}'.format(portion)))
+        logger.debug('└─────────┴─────────┘')
 
 
 class CommandLineHorizontalPlot(object):
