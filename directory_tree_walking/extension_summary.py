@@ -62,7 +62,7 @@ def main(args):
 
 def get_hex_colors(n):
     import colorsys
-    HSV_tuples = [(x*1.0/n, 0.5, 0.5) for x in range(n)]
+    HSV_tuples = [(x*1.0/n, 0.15, 0.75) for x in range(n)]
     colors = []
     for rgb in HSV_tuples:
         rgb = colorsys.hsv_to_rgb(*rgb)
@@ -209,6 +209,8 @@ import matplotlib.pyplot as plt
 import numpy
 class DirectoryBreakdownFigure(object):
     bar_colors = {}
+    #inverted_color = lambda x: numpy.invert((numpy.array(x)*255)\
+    #                                              .astype(numpy.uint8))/255
 
     def __init__(self, extension_stats, margin_width, plot_height, color_map):
         self.extension_stats = extension_stats
@@ -235,7 +237,7 @@ class DirectoryBreakdownFigure(object):
             for directory_stats in dominated_ext_stats:
                 directory_labels.append(directory_stats.path)
 
-                bar_widths, bar_offsets, colors = self.single_barh(
+                bar_widths, bar_offsets, colors, annotations = self.single_barh(
                     ext_stats=directory_stats)
 
                 # every horizontal bar created for this directory will be
@@ -249,6 +251,13 @@ class DirectoryBreakdownFigure(object):
                           color=colors,
                           #linewidth=0)
                           edgecolor='black')
+
+                #for text_x, ext, color in annotations:
+                for text_x, ext in annotations:
+                    right_y_axis.text(text_x, y_val+.27, ext,
+                                      fontsize=8,
+                                      horizontalalignment='right',)
+                                      #color=color)
 
                 y_val += 1
 
@@ -276,23 +285,43 @@ class DirectoryBreakdownFigure(object):
         bar_widths = []
         bar_offsets_from_left = [0]
         colors = []
+        ext_annotations = []
         for ext, proportion in ext_stats:
             if ext not in DirectoryBreakdownFigure.bar_colors:
                 DirectoryBreakdownFigure.bar_colors[ext] = next(self.color_map)
 
-            colors.append(DirectoryBreakdownFigure.bar_colors[ext])
+            ext_color = DirectoryBreakdownFigure.bar_colors[ext]
+            colors.append(ext_color)
             bar_widths.append(proportion)
 
             # set the offet for the bar to be drawn after this one
-            bar_offsets_from_left.append(proportion+bar_offsets_from_left[-1])
+            start_of_bar = bar_offsets_from_left[-1]
+            end_of_bar = proportion + start_of_bar
+            bar_offsets_from_left.append(end_of_bar)
 
             # TODO: add text annotations
+            extention_width = len(ext)*0.014
+            if extention_width < proportion:
+                text_x = start_of_bar + 0.01
+                ext_annotations.append((text_x, ext))
+
+                # text_color = DirectoryBreakdownFigure.inverted_color(ext_color)
+                # print(ext_color)
+                # print(text_color)
+                #ext_annotations.append((text_x, ext, text_color))
+                # inverted_color = numpy.array(numpy.array(ext_color)*255)\
+                #                       .astype(numpy.uint8)
+                # print(inverted_color)
+                # inverted_color = numpy.invert(inverted_color)
+                # print(inverted_color)
+                #print('-'*20)
+
 
         # remove the last offset, as it doesn't correspond to any extension
         # due to the manner in which the bar offsets are created
         bar_offsets_from_left.pop()
 
-        return bar_widths, bar_offsets_from_left, colors
+        return bar_widths, bar_offsets_from_left, colors, ext_annotations
 
 
 
