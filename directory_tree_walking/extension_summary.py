@@ -95,7 +95,7 @@ class DirectorySummary(object):
         if directory[-1] == '/':
             directory = os.path.dirname(directory)
 
-        return os.path.abspath(directory)
+        return directory #os.path.abspath(directory)
 
     def walk(self, ignore):
         for subdirectory, directory_names, files in os.walk(self.root):
@@ -122,9 +122,10 @@ class DirectorySummary(object):
                 self.num_files += 1
 
     def walk_path_to_root(self, extension, file_size, parent_directory):
+        ignore_abs_path = len(os.path.dirname(self.root))+1
         while parent_directory != self.root:
             directory_summary = self.directory_based_file_types[
-                parent_directory]
+                parent_directory[ignore_abs_path:]]
 
             if extension not in directory_summary:
                 directory_summary[extension] = []
@@ -225,10 +226,10 @@ class DirectoryBreakdownFigure(object):
 
         directory_labels, right_y_axis = self.construct_plot(axes)
 
-        self.format_plot(axes, directory_labels, right_y_axis)
+        self.format_plot(figure, axes, directory_labels, right_y_axis)
         plt.savefig(save_to)
 
-    def format_plot(self, axes, directory_labels, right_y_axis):
+    def format_plot(self, figure, axes, directory_labels, right_y_axis):
         # add directories to the right of the plot
         y_ticks = numpy.arange(len(directory_labels)) + 0.5
         right_y_axis.set_yticks(y_ticks)
@@ -242,7 +243,9 @@ class DirectoryBreakdownFigure(object):
         # hide the tickmarks on the left y-axis
         axes.set_yticks([])
         axes.set_xticks([])
-        plt.tight_layout()
+        figure.suptitle('File Type Breakdown: '
+                        '/media/slotrahau5/warez/sample')
+        plt.tight_layout(pad=5.25)
 
     def construct_plot(self, axes):
         # create the bar for each directory
@@ -298,7 +301,7 @@ class DirectoryBreakdownFigure(object):
             end_of_bar = proportion + start_of_bar
             bar_offsets_from_left.append(end_of_bar)
 
-            extention_width = len(ext)*0.0175
+            extention_width = len(ext)*0.023
             if extention_width < proportion:
                 text_x = start_of_bar + 0.01
                 ext_annotations.append((text_x, ext))
