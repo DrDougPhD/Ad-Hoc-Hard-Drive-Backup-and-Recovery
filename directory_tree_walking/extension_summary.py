@@ -183,22 +183,49 @@ class DirectorySummary(object):
         #             directory_path, ext_stats_in_dir[extension]
         #         ))
         #     #sorted_directories_by_max_portion.sort(key=lambda)
-        plot = DirectoryBreakdownFigure(extension_stats=dominating_extensions)
+        plot = DirectoryBreakdownFigure(
+            extension_stats=dominating_extensions,
+            margin_width=max_length_of_leaf_directory_path,
+            plot_height=num_subdirectories,
+        )
         plot.plot(save_to='extension_breakdown.pdf')
 
 
 import matplotlib.pyplot as plt
+import numpy
 class DirectoryBreakdownFigure(object):
-    def __init__(self, extension_stats):
+    def __init__(self, extension_stats, margin_width, plot_height):
         self.extension_stats = extension_stats
+        self.margin_width = margin_width
+        self.plot_height = plot_height
 
     def plot(self, save_to):
-        verticle_space = 50
-        horizontal_space = 10
+        verticle_space = int(self.plot_height/6)
+        horizontal_space = int(self.margin_width/10) + 5
 
-        figure, axis = plt.subplots(
-            figsize=(verticle_space, horizontal_space))
-        plt.show()
+        logger.debug('Verticle space:   {}'.format(verticle_space))
+        logger.debug('Horizontal space: {}'.format(horizontal_space))
+
+        figure, axes = plt.subplots(
+            figsize=(horizontal_space, verticle_space))
+        right_y_axis = axes.twinx()
+
+        directory_labels = []
+        for ext, dominated_ext_stats in self.extension_stats.items():
+            for directory_stats in dominated_ext_stats:
+                directory_labels.append(directory_stats.path)
+
+        # add directories to the right of the plot
+        y_ticks = numpy.arange(len(directory_labels))+0.5
+        right_y_axis.set_yticks(y_ticks)
+        right_y_axis.set_yticklabels(directory_labels)
+        right_y_axis.tick_params(axis='y', which='both', length=0)
+        right_y_axis.invert_yaxis()
+
+        # hide the tickmarks on the left y-axis
+        axes.set_yticks([])
+        plt.tight_layout()
+        plt.savefig(save_to)
 
 
 
