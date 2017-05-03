@@ -286,6 +286,8 @@ class DirectoryBreakdownFigure(object):
             # set the offet for the bar to be drawn after this one
             bar_offsets_from_left.append(proportion+bar_offsets_from_left[-1])
 
+            # TODO: add text annotations
+
         # remove the last offset, as it doesn't correspond to any extension
         # due to the manner in which the bar offsets are created
         bar_offsets_from_left.pop()
