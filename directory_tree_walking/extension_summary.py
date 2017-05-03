@@ -99,16 +99,19 @@ class DirectorySummary(object):
                 self.file_type_sizes[extension].append(file_size)
 
                 parent_directory = os.path.dirname(file_path)
-                while parent_directory != self.root:
-                    directory_summary = self.directory_based_file_types[
-                        parent_directory]
+                self.walk_path_to_root(extension, file_size, parent_directory)
 
-                    if extension not in directory_summary:
-                        directory_summary[extension] = []
+    def walk_path_to_root(self, extension, file_size, parent_directory):
+        while parent_directory != self.root:
+            directory_summary = self.directory_based_file_types[
+                parent_directory]
 
-                    directory_summary[extension].append(file_size)
+            if extension not in directory_summary:
+                directory_summary[extension] = []
 
-                    parent_directory = os.path.dirname(parent_directory)
+            directory_summary[extension].append(file_size)
+
+            parent_directory = os.path.dirname(parent_directory)
 
     def print(self):
         cli_plot = CommandLineHorizontalPlot(data=self.file_type_sizes)
