@@ -48,6 +48,7 @@ import os
 import collections
 import logging
 import hurry.filesize as filesize
+import itertools
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,16 @@ def main(args):
     summary.walk()
     summary.print()
     summary.plot()
+
+
+def get_hex_colors(n):
+    import colorsys
+    HSV_tuples = [(x*1.0/n, 0.5, 0.5) for x in range(n)]
+    colors = []
+    for rgb in HSV_tuples:
+        rgb = colorsys.hsv_to_rgb(*rgb)
+        colors.append(tuple(rgb))
+    return colors
 
 
 class DirectorySummary(object):
@@ -163,6 +174,8 @@ class DirectorySummary(object):
         logger.debug('Number of unique extension: {}'.format(
             num_unique_extensions))
 
+        colors = get_hex_colors(n=num_unique_extensions)
+        color_wheel = itertools.cycle(colors)
         num_subdirectories = len(self.directory_based_file_types)
         logger.debug('{0} subdirectories contained within {1}'.format(
             num_subdirectories, self.root
@@ -187,21 +200,21 @@ class DirectorySummary(object):
             extension_stats=dominating_extensions,
             margin_width=max_length_of_leaf_directory_path,
             plot_height=num_subdirectories,
+            color_map=color_wheel
         )
         plot.plot(save_to='extension_breakdown.pdf')
 
 
 import matplotlib.pyplot as plt
 import numpy
-import itertools
-color_wheel = itertools.cycle(['blue', 'green', 'red'])
 class DirectoryBreakdownFigure(object):
     bar_colors = {}
 
-    def __init__(self, extension_stats, margin_width, plot_height):
+    def __init__(self, extension_stats, margin_width, plot_height, color_map):
         self.extension_stats = extension_stats
         self.margin_width = margin_width
         self.plot_height = plot_height
+        self.color_map = color_map
 
     def plot(self, save_to):
         verticle_space = int(self.plot_height/6)
@@ -231,11 +244,11 @@ class DirectoryBreakdownFigure(object):
                 y_vals = numpy.zeros(num_bars) + y_val + .5
                 right_y_axis.barh(bottom=y_vals,
                           width=bar_widths,
-                          height=1.05,
+                          height=1,
                           left=bar_offsets,
                           color=colors,
-                          linewidth=0)
-                          #edgecolor='black')
+                          #linewidth=0)
+                          edgecolor='black')
 
                 y_val += 1
 
@@ -265,10 +278,10 @@ class DirectoryBreakdownFigure(object):
         colors = []
         for ext, proportion in ext_stats:
             if ext not in DirectoryBreakdownFigure.bar_colors:
-                DirectoryBreakdownFigure.bar_colors[ext] = next(color_wheel)
+                DirectoryBreakdownFigure.bar_colors[ext] = next(self.color_map)
 
             colors.append(DirectoryBreakdownFigure.bar_colors[ext])
-            bar_widths.append(proportion+.05)
+            bar_widths.append(proportion)
 
             # set the offet for the bar to be drawn after this one
             bar_offsets_from_left.append(proportion+bar_offsets_from_left[-1])
