@@ -193,7 +193,11 @@ class DirectorySummary(object):
 
 import matplotlib.pyplot as plt
 import numpy
+import itertools
+color_wheel = itertools.cycle(['blue', 'green', 'red'])
 class DirectoryBreakdownFigure(object):
+    bar_colors = {}
+
     def __init__(self, extension_stats, margin_width, plot_height):
         self.extension_stats = extension_stats
         self.margin_width = margin_width
@@ -201,33 +205,76 @@ class DirectoryBreakdownFigure(object):
 
     def plot(self, save_to):
         verticle_space = int(self.plot_height/6)
-        horizontal_space = int(self.margin_width/10) + 5
+        horizontal_space = int(self.margin_width/10) + 3
 
         logger.debug('Verticle space:   {}'.format(verticle_space))
         logger.debug('Horizontal space: {}'.format(horizontal_space))
 
         figure, axes = plt.subplots(
             figsize=(horizontal_space, verticle_space))
-        right_y_axis = axes.twinx()
 
+        # create the bar for each directory
         directory_labels = []
+        y_val = 0
         for ext, dominated_ext_stats in self.extension_stats.items():
+
             for directory_stats in dominated_ext_stats:
                 directory_labels.append(directory_stats.path)
 
+                bar_widths, bar_offsets, colors = self.single_barh(
+                    ext_stats=directory_stats)
+
+                # every horizontal bar created for this directory will be
+                #  located on the same y height
+                num_bars = len(bar_widths)
+                y_vals = numpy.zeros(num_bars) + y_val
+                axes.barh(bottom=y_vals,
+                          width=bar_widths,
+                          height=1,
+                          left=bar_offsets,
+                          color=colors,
+                          edgecolor='black')
+
+                y_val += 1
+
+        logger.debug('{} bars produced'.format(y_val))
+        logger.debug('{} directories considered'.format(self.plot_height))
+
         # add directories to the right of the plot
         y_ticks = numpy.arange(len(directory_labels))+0.5
+        right_y_axis = axes.twinx()
         right_y_axis.set_yticks(y_ticks)
         right_y_axis.set_yticklabels(directory_labels)
         right_y_axis.tick_params(axis='y', which='both', length=0)
         right_y_axis.invert_yaxis()
+        axes.set_xlim([0, 1])
+        axes.set_ylim([0, self.plot_height])
+        axes.invert_xaxis()
 
         # hide the tickmarks on the left y-axis
-        axes.set_yticks([])
+        #axes.set_yticks([])
         plt.tight_layout()
         plt.savefig(save_to)
 
+    def single_barh(self, ext_stats):
+        bar_widths = []
+        bar_offsets_from_left = [0]
+        colors = []
+        for ext, proportion in ext_stats:
+            if ext not in DirectoryBreakdownFigure.bar_colors:
+                DirectoryBreakdownFigure.bar_colors[ext] = next(color_wheel)
 
+            colors.append(DirectoryBreakdownFigure.bar_colors[ext])
+            bar_widths.append(proportion)
+
+            # set the offet for the bar to be drawn after this one
+            bar_offsets_from_left.append(proportion+bar_offsets_from_left[-1])
+
+        # remove the last offset, as it doesn't correspond to any extension
+        # due to the manner in which the bar offsets are created
+        bar_offsets_from_left.pop()
+
+        return bar_widths, bar_offsets_from_left, colors
 
 
 
@@ -291,6 +338,9 @@ class DirectoryExtensionStats(object):
 
             self.sorted_extensions = sorted_extensions
 
+    def __iter__(self):
+        for extension, proportion in self.sorted_extensions.items():
+            yield (extension, proportion)
 
 class CommandLineHorizontalPlot(object):
     def __init__(self, data):
