@@ -187,15 +187,6 @@ class DirectorySummary(object):
         logger.debug('Max length of directory path: {} chars'.format(
             max_length_of_leaf_directory_path))
 
-
-        # ordered_directories = collections.OrderedDict()
-        # for extension, path_stats in dominating_extensions.items():
-        #     sorted_directories_by_max_portion = []
-        #     for directory_path, ext_stats_in_dir in path_stats.items():
-        #         sorted_directories_by_max_portion.append((
-        #             directory_path, ext_stats_in_dir[extension]
-        #         ))
-        #     #sorted_directories_by_max_portion.sort(key=lambda)
         plot = DirectoryBreakdownFigure(
             extension_stats=dominating_extensions,
             margin_width=max_length_of_leaf_directory_path,
@@ -209,8 +200,6 @@ import matplotlib.pyplot as plt
 import numpy
 class DirectoryBreakdownFigure(object):
     bar_colors = {}
-    #inverted_color = lambda x: numpy.invert((numpy.array(x)*255)\
-    #                                              .astype(numpy.uint8))/255
 
     def __init__(self, extension_stats, margin_width, plot_height, color_map):
         self.extension_stats = extension_stats
@@ -228,6 +217,28 @@ class DirectoryBreakdownFigure(object):
         figure, axes = plt.subplots(
             figsize=(horizontal_space, verticle_space))
 
+        directory_labels, right_y_axis = self.construct_plot(axes)
+
+        self.format_plot(axes, directory_labels, right_y_axis)
+        plt.savefig(save_to)
+
+    def format_plot(self, axes, directory_labels, right_y_axis):
+        # add directories to the right of the plot
+        y_ticks = numpy.arange(len(directory_labels)) + 0.5
+        right_y_axis.set_yticks(y_ticks)
+        right_y_axis.set_yticklabels(directory_labels)
+        right_y_axis.tick_params(axis='y', which='both', length=0)
+        right_y_axis.invert_yaxis()
+        axes.set_xlim([0, 1])
+        axes.set_ylim([0, self.plot_height])
+        right_y_axis.set_ylim([0, self.plot_height])
+        axes.invert_xaxis()
+        # hide the tickmarks on the left y-axis
+        axes.set_yticks([])
+        axes.set_xticks([])
+        plt.tight_layout()
+
+    def construct_plot(self, axes):
         # create the bar for each directory
         directory_labels = []
         y_val = 0
@@ -245,41 +256,23 @@ class DirectoryBreakdownFigure(object):
                 num_bars = len(bar_widths)
                 y_vals = numpy.zeros(num_bars) + y_val + .5
                 right_y_axis.barh(bottom=y_vals,
-                          width=bar_widths,
-                          height=1,
-                          left=bar_offsets,
-                          color=colors,
-                          #linewidth=0)
-                          edgecolor='black')
+                                  width=bar_widths,
+                                  height=1,
+                                  left=bar_offsets,
+                                  color=colors,
+                                  # linewidth=0)
+                                  edgecolor='black')
 
-                #for text_x, ext, color in annotations:
+                # for text_x, ext, color in annotations:
                 for text_x, ext in annotations:
-                    right_y_axis.text(text_x, y_val+.27, ext,
+                    right_y_axis.text(text_x, y_val + .27, ext,
                                       fontsize=8,
-                                      horizontalalignment='right',)
-                                      #color=color)
+                                      horizontalalignment='right')
 
                 y_val += 1
-
         logger.debug('{} bars produced'.format(y_val))
         logger.debug('{} directories considered'.format(self.plot_height))
-
-        # add directories to the right of the plot
-        y_ticks = numpy.arange(len(directory_labels))+0.5
-        right_y_axis.set_yticks(y_ticks)
-        right_y_axis.set_yticklabels(directory_labels)
-        right_y_axis.tick_params(axis='y', which='both', length=0)
-        right_y_axis.invert_yaxis()
-        axes.set_xlim([0, 1])
-        axes.set_ylim([0, self.plot_height])
-        right_y_axis.set_ylim([0, self.plot_height])
-        axes.invert_xaxis()
-
-        # hide the tickmarks on the left y-axis
-        axes.set_yticks([])
-        axes.set_xticks([])
-        plt.tight_layout()
-        plt.savefig(save_to)
+        return directory_labels, right_y_axis
 
     def single_barh(self, ext_stats):
         bar_widths = []
@@ -304,18 +297,6 @@ class DirectoryBreakdownFigure(object):
             if extention_width < proportion:
                 text_x = start_of_bar + 0.01
                 ext_annotations.append((text_x, ext))
-
-                # text_color = DirectoryBreakdownFigure.inverted_color(ext_color)
-                # print(ext_color)
-                # print(text_color)
-                #ext_annotations.append((text_x, ext, text_color))
-                # inverted_color = numpy.array(numpy.array(ext_color)*255)\
-                #                       .astype(numpy.uint8)
-                # print(inverted_color)
-                # inverted_color = numpy.invert(inverted_color)
-                # print(inverted_color)
-                #print('-'*20)
-
 
         # remove the last offset, as it doesn't correspond to any extension
         # due to the manner in which the bar offsets are created
