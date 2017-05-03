@@ -55,6 +55,7 @@ def main(args):
     summary = DirectorySummary(root=args.target)
     summary.walk()
     summary.print()
+    summary.plot()
 
 class DirectorySummary(object):
     def __init__(self, root):
@@ -128,7 +129,50 @@ class DirectorySummary(object):
 
 
     def plot(self):
-        pass
+        num_subdirectories = len(self.directory_based_file_types)
+        logger.debug('{0} subdirectories contained within {1}'.format(
+            num_subdirectories, self.root
+        ))
+
+        max_length_of_leaf_directory_path = len(
+            max(self.directory_based_file_types.keys(),
+                key=len))
+        logger.debug('Max length of directory path: {} chars'.format(
+            max_length_of_leaf_directory_path))
+
+        # partition directories by their dominating extension
+        dominating_extensions = {k: {} for k in self.file_type_sizes.keys()}
+        for directory_path, extension_stats in \
+                self.directory_based_file_types.items():
+
+            logger.debug(directory_path)
+
+            dominating_ext_in_dir = max(extension_stats.keys(),
+                                        key=lambda k: len(extension_stats[k]))
+
+            ext_count_pairs = map(lambda k: (k, len(extension_stats[k])),
+                                  extension_stats.keys())
+            ext_count_pairs = sorted(ext_count_pairs,
+                                     key=lambda x: x[1],
+                                     reverse=True)
+            num_files_within_dir = sum(map(lambda v: v[1],
+                                           ext_count_pairs))
+            ext_portion_pairs = list(map(
+                lambda v: (v[0], float(v[1])/num_files_within_dir),
+                ext_count_pairs))
+
+            dominating_extensions[dominating_ext_in_dir][directory_path] = \
+                ext_portion_pairs
+
+            logger.debug('Dominated by: {0: >7} - {1: >6}, {2: >4}'.format(
+                ext_portion_pairs[0][0],
+                '{:.1%}'.format(ext_portion_pairs[0][1]),
+                filesize.size(
+                    sum(extension_stats[dominating_ext_in_dir]),
+                    system=filesize.si
+            )))
+
+
 
 
 class CommandLineHorizontalPlot(object):
