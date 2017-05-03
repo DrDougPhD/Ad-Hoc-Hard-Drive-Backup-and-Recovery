@@ -153,8 +153,8 @@ class DirectorySummary(object):
 
             logger.debug(hr(extension, '-'))
             for stats in ext_stats:
-                stats.summary()
                 stats.sort_extensions()
+                stats.summary()
 
         # Print out summary of the walked directories
         logger.debug(hr('Summary'))
@@ -216,12 +216,22 @@ class DirectoryExtensionStats(object):
 
     def summary(self):
         logger.debug(self.path)
-        logger.debug('Dominated by: {0: >7} - {1: >6}, {2: >4}'.format(
-                self.dominating_ext,
-                '{:.1%}'.format(self.proportion_files_with_dominating_ext),
-                filesize.size(self.space_allocated_to_dominating_ext,
+        # logger.debug('Dominated by: {0: >7} - {1: >6}, {2: >4}'.format(
+        #         self.dominating_ext,
+        #         '{:.1%}'.format(self.proportion_files_with_dominating_ext),
+        #         filesize.size(self.space_allocated_to_dominating_ext,
+        #                       system=filesize.si)
+        #     ))
+
+        logger.debug('┌─────────┬─────────┬────────┐')
+        for ext, portion in self.sorted_extensions.items():
+            logger.debug('│ {0: ^7} │ {1: ^7} │  {2: >4}  │'.format(
+                ext,
+                '{:.1%}'.format(portion),
+                filesize.size(sum(self.extension_stats[ext]),
                               system=filesize.si)
             ))
+        logger.debug('└─────────┴─────────┴────────┘')
 
     def sort_extensions(self):
         ext_portion_pair = map(lambda x: (x, len(self.extension_stats[x])),
@@ -233,14 +243,7 @@ class DirectoryExtensionStats(object):
         for ext, portion in ext_portion_pair:
             sorted_extensions[ext] = portion/self.num_files_within_dir
 
-        self.sorted_extensions = sorted_extensions
-
-        logger.debug('┌─────────┬─────────┐')
-        for ext, portion in sorted_extensions.items():
-            logger.debug('│ {0: ^7} │ {1: ^7} │'.format(
-                ext,
-                '{:.1%}'.format(portion)))
-        logger.debug('└─────────┴─────────┘')
+            self.sorted_extensions = sorted_extensions
 
 
 class CommandLineHorizontalPlot(object):
