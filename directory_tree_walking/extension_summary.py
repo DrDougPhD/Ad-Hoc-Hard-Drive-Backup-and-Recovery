@@ -231,10 +231,11 @@ class DirectoryBreakdownFigure(object):
                 y_vals = numpy.zeros(num_bars) + y_val + .5
                 right_y_axis.barh(bottom=y_vals,
                           width=bar_widths,
-                          height=1,
+                          height=1.05,
                           left=bar_offsets,
                           color=colors,
-                          edgecolor='black')
+                          linewidth=0)
+                          #edgecolor='black')
 
                 y_val += 1
 
@@ -253,7 +254,8 @@ class DirectoryBreakdownFigure(object):
         axes.invert_xaxis()
 
         # hide the tickmarks on the left y-axis
-        #axes.set_yticks([])
+        axes.set_yticks([])
+        axes.set_xticks([])
         plt.tight_layout()
         plt.savefig(save_to)
 
@@ -266,7 +268,7 @@ class DirectoryBreakdownFigure(object):
                 DirectoryBreakdownFigure.bar_colors[ext] = next(color_wheel)
 
             colors.append(DirectoryBreakdownFigure.bar_colors[ext])
-            bar_widths.append(proportion)
+            bar_widths.append(proportion+.05)
 
             # set the offet for the bar to be drawn after this one
             bar_offsets_from_left.append(proportion+bar_offsets_from_left[-1])
