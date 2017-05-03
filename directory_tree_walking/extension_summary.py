@@ -54,8 +54,9 @@ logger = logging.getLogger(__name__)
 
 
 def main(args):
+    extensions_to_ignore = ['.au']
     summary = DirectorySummary(root=args.target)
-    summary.walk()
+    summary.walk(ignore=extensions_to_ignore)
     summary.print()
     summary.plot()
 
@@ -96,9 +97,8 @@ class DirectorySummary(object):
 
         return os.path.abspath(directory)
 
-    def walk(self):
+    def walk(self, ignore):
         for subdirectory, directory_names, files in os.walk(self.root):
-            self.num_files += len(files)
 
             for filename in files:
                 file_path = os.path.join(subdirectory, filename)
@@ -107,13 +107,19 @@ class DirectorySummary(object):
                 if os.path.islink(file_path):
                     continue
 
+                filename_prefix, extension = os.path.splitext(filename)
+                if extension in ignore:
+                    continue
+
                 file_size = os.path.getsize(file_path)
                 self.total_size += file_size
-                filename_prefix, extension = os.path.splitext(filename)
+
                 self.file_type_sizes[extension].append(file_size)
 
                 parent_directory = os.path.dirname(file_path)
                 self.walk_path_to_root(extension, file_size, parent_directory)
+
+                self.num_files += 1
 
     def walk_path_to_root(self, extension, file_size, parent_directory):
         while parent_directory != self.root:
@@ -292,8 +298,7 @@ class DirectoryBreakdownFigure(object):
             end_of_bar = proportion + start_of_bar
             bar_offsets_from_left.append(end_of_bar)
 
-            # TODO: add text annotations
-            extention_width = len(ext)*0.014
+            extention_width = len(ext)*0.0175
             if extention_width < proportion:
                 text_x = start_of_bar + 0.01
                 ext_annotations.append((text_x, ext))
