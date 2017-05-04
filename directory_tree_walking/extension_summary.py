@@ -200,7 +200,8 @@ class DirectorySummary(object):
             plot_height=num_subdirectories,
             color_map=color_wheel
         )
-        plot.plot(save_to='extension_breakdown.pdf')
+        plot.plot(save_to='extension_breakdown.pdf',
+                  walked_directory=self.root)
 
 
 import matplotlib.pyplot as plt
@@ -215,7 +216,7 @@ class DirectoryBreakdownFigure(object):
         self.plot_height = plot_height
         self.color_map = color_map
 
-    def plot(self, save_to):
+    def plot(self, save_to, walked_directory):
         verticle_space = int(self.plot_height/6)
         horizontal_space = int(self.margin_width/10) + 3
 
@@ -227,10 +228,12 @@ class DirectoryBreakdownFigure(object):
 
         directory_labels, right_y_axis = self.construct_plot(axes)
 
-        self.format_plot(figure, axes, directory_labels, right_y_axis)
+        self.format_plot(figure, axes, directory_labels, right_y_axis,
+                         walked_directory)
         plt.savefig(save_to)
 
-    def format_plot(self, figure, axes, directory_labels, right_y_axis):
+    def format_plot(self, figure, axes, directory_labels, right_y_axis,
+                    directory):
         # add directories to the right of the plot
         y_ticks = numpy.arange(len(directory_labels)) + 0.5
         right_y_axis.set_yticks(y_ticks)
@@ -247,8 +250,7 @@ class DirectoryBreakdownFigure(object):
         # hide the tickmarks on the left y-axis
         axes.set_yticks([])
         axes.set_xticks([])
-        figure.suptitle('File Type Breakdown: '
-                        '/media/slotrahau5/warez/sample')
+        figure.suptitle('File Type Breakdown: {}'.format(directory))
         plt.tight_layout(pad=5.25)
 
     def construct_plot(self, axes):
