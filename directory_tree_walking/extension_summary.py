@@ -207,6 +207,7 @@ import matplotlib.pyplot as plt
 import numpy
 class DirectoryBreakdownFigure(object):
     bar_colors = {}
+    #background_color_wheel = itertools.cycle(['#00000000', '#11111100'])
 
     def __init__(self, extension_stats, margin_width, plot_height, color_map):
         self.extension_stats = extension_stats
@@ -233,7 +234,10 @@ class DirectoryBreakdownFigure(object):
         # add directories to the right of the plot
         y_ticks = numpy.arange(len(directory_labels)) + 0.5
         right_y_axis.set_yticks(y_ticks)
-        right_y_axis.set_yticklabels(directory_labels)
+        right_y_axis.set_yticklabels(
+            directory_labels,)
+            # backgroundcolor=[next(self.background_color_wheel)
+            #                  for _ in range(len(directory_labels))])
         right_y_axis.tick_params(axis='y', which='both', length=0)
         right_y_axis.invert_yaxis()
         axes.set_xlim([0, 1])
@@ -274,9 +278,12 @@ class DirectoryBreakdownFigure(object):
 
                 # for text_x, ext, color in annotations:
                 for text_x, ext in annotations:
-                    right_y_axis.text(text_x, y_val + .27, ext,
-                                      fontsize=8,
-                                      horizontalalignment='right')
+                    right_y_axis.text(
+                        x=text_x,
+                        y=y_val + .27,
+                        s=ext,
+                        fontsize=8,
+                        horizontalalignment='right')
 
                 y_val += 1
         logger.debug('{} bars produced'.format(y_val))
