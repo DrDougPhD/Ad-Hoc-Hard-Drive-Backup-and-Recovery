@@ -404,12 +404,18 @@ class CommandLineHorizontalPlot(object):
                                                       value_fmt_fn=value_fmt_fn)
         bottom_border = self.generate_horizontal_border(corner='└')
 
+        plot_content = [title, top_border]
+        plot_content.extend(plot_lines)
+        plot_content.append(bottom_border)
+        """
         plot_content = '\n'.join([
             title,
             top_border,
             *plot_lines,
             bottom_border,
         ]) + '\n'
+        """
+        plot_content = '\n'.join(plot_content)
         print(plot_content)
 
 
