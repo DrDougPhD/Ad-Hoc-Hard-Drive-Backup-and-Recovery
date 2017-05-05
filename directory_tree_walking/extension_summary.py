@@ -276,7 +276,7 @@ class DirectoryBreakdownFigure(object):
         axes.set_xlim([0, 1])
         axes.set_ylim([0, self.plot_height])
         right_y_axis.set_ylim([0, self.plot_height])
-        axes.invert_xaxis()
+        #axes.invert_xaxis()
         # hide the tickmarks on the left y-axis
         axes.set_yticks([])
         axes.set_xticks([])
@@ -288,7 +288,6 @@ class DirectoryBreakdownFigure(object):
         directory_labels = []
         y_val = 0
         right_y_axis = axes.twinx()
-        right_y_axis.invert_yaxis()
 
         for directory_stats in self.extension_stats:
             directory_labels.append(directory_stats.path)
@@ -315,7 +314,7 @@ class DirectoryBreakdownFigure(object):
                     y=y_val + .27,
                     s=ext,
                     fontsize=8,
-                    horizontalalignment='right')
+                    horizontalalignment='left')
 
             y_val += 1
 
