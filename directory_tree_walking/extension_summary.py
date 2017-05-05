@@ -277,6 +277,7 @@ class DirectoryBreakdownFigure(object):
         axes.set_ylim([0, self.plot_height])
         right_y_axis.set_ylim([0, self.plot_height])
         #axes.invert_xaxis()
+        right_y_axis.invert_yaxis()
         # hide the tickmarks on the left y-axis
         axes.set_yticks([])
         axes.set_xticks([])
@@ -311,10 +312,11 @@ class DirectoryBreakdownFigure(object):
             for text_x, ext in annotations:
                 right_y_axis.text(
                     x=text_x,
-                    y=y_val + .27,
+                    y=y_val + .20,
                     s=ext,
                     fontsize=8,
-                    horizontalalignment='left')
+                    horizontalalignment='left',
+                    verticalalignment='top')
 
             y_val += 1
 
