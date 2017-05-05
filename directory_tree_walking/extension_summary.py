@@ -204,6 +204,8 @@ class DirectorySummary(object):
                   walked_directory=self.root)
 
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy
 class DirectoryBreakdownFigure(object):
