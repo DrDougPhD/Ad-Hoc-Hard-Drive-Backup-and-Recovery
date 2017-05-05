@@ -194,14 +194,39 @@ class DirectorySummary(object):
         logger.debug('Max length of directory path: {} chars'.format(
             max_length_of_leaf_directory_path))
 
-        plot = DirectoryBreakdownFigure(
-            extension_stats=dominating_extensions,
-            margin_width=max_length_of_leaf_directory_path,
-            plot_height=num_subdirectories,
-            color_map=color_wheel
-        )
-        plot.plot(save_to='extension_breakdown.pdf',
-                  walked_directory=self.root)
+        i = 0
+        max_stats_per_page = 200
+        report_filename_format = 'extension_breakdown_p{:0>6}.pdf'
+        for ext, ext_stats_by_dominating_stats in dominating_extensions.items():
+            extension_stats = []
+
+            page_num = 0
+            for stats in ext_stats_by_dominating_stats:
+                if i == max_stats_per_page:
+                    plot = DirectoryBreakdownFigure(
+                        extension_stats=extension_stats,
+                        margin_width=max_length_of_leaf_directory_path,
+                        plot_height=num_subdirectories,
+                        color_map=color_wheel
+                    )
+                    plot.plot(save_to=report_filename_format.format(page_num),
+                              walked_directory=self.root)
+                    i = 0
+                    page_num += 1
+                    extension_stats = []
+
+                extension_stats.append(stats)
+                i += 1
+
+        if i <= max_stats_per_page:
+            plot = DirectoryBreakdownFigure(
+                extension_stats=extension_stats,
+                margin_width=max_length_of_leaf_directory_path,
+                plot_height=num_subdirectories,
+                color_map=color_wheel
+            )
+            plot.plot(save_to=report_filename_format.format(page_num),
+                      walked_directory=self.root)
 
 
 import matplotlib.pyplot as plt
@@ -258,36 +283,36 @@ class DirectoryBreakdownFigure(object):
         directory_labels = []
         y_val = 0
         right_y_axis = axes.twinx()
-        for ext, dominated_ext_stats in self.extension_stats.items():
 
-            for directory_stats in dominated_ext_stats:
-                directory_labels.append(directory_stats.path)
+        for directory_stats in self.extension_stats:
+            directory_labels.append(directory_stats.path)
 
-                bar_widths, bar_offsets, colors, annotations = self.single_barh(
-                    ext_stats=directory_stats)
+            bar_widths, bar_offsets, colors, annotations = self.single_barh(
+                ext_stats=directory_stats)
 
-                # every horizontal bar created for this directory will be
-                #  located on the same y height
-                num_bars = len(bar_widths)
-                y_vals = numpy.zeros(num_bars) + y_val + .5
-                right_y_axis.barh(bottom=y_vals,
-                                  width=bar_widths,
-                                  height=1,
-                                  left=bar_offsets,
-                                  color=colors,
-                                  # linewidth=0)
-                                  edgecolor='black')
+            # every horizontal bar created for this directory will be
+            #  located on the same y height
+            num_bars = len(bar_widths)
+            y_vals = numpy.zeros(num_bars) + y_val + .5
+            right_y_axis.barh(bottom=y_vals,
+                              width=bar_widths,
+                              height=1,
+                              left=bar_offsets,
+                              color=colors,
+                              # linewidth=0)
+                              edgecolor='black')
 
-                # for text_x, ext, color in annotations:
-                for text_x, ext in annotations:
-                    right_y_axis.text(
-                        x=text_x,
-                        y=y_val + .27,
-                        s=ext,
-                        fontsize=8,
-                        horizontalalignment='right')
+            # for text_x, ext, color in annotations:
+            for text_x, ext in annotations:
+                right_y_axis.text(
+                    x=text_x,
+                    y=y_val + .27,
+                    s=ext,
+                    fontsize=8,
+                    horizontalalignment='right')
 
-                y_val += 1
+            y_val += 1
+
         logger.debug('{} bars produced'.format(y_val))
         logger.debug('{} directories considered'.format(self.plot_height))
         return directory_labels, right_y_axis
@@ -353,7 +378,6 @@ class DirectoryExtensionStats(object):
         return ext, count, space, proportion
 
     def summary(self):
-        logger.debug(self.path)
         # logger.debug('Dominated by: {0: >7} - {1: >6}, {2: >4}'.format(
         #         self.dominating_ext,
         #         '{:.1%}'.format(self.proportion_files_with_dominating_ext),
@@ -361,7 +385,7 @@ class DirectoryExtensionStats(object):
         #                       system=filesize.si)
         #     ))
 
-        logger.debug('┌─────────┬─────────┬────────┐')
+        logger.debug('┌─────────┬─────────┬────────┐  ' + self.path)
         for ext, portion in self.sorted_extensions.items():
             logger.debug('│ {0: ^7} │ {1: ^7} │  {2: >4}  │'.format(
                 ext,
