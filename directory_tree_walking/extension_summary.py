@@ -195,18 +195,20 @@ class DirectorySummary(object):
             max_length_of_leaf_directory_path))
 
         i = 0
-        max_stats_per_page = 200
+        max_stats_per_page = 75
         report_filename_format = 'extension_breakdown_p{:0>6}.pdf'
+        page_num = 0
+        extension_stats = []
         for ext, ext_stats_by_dominating_stats in dominating_extensions.items():
-            extension_stats = []
 
-            page_num = 0
             for stats in ext_stats_by_dominating_stats:
                 if i == max_stats_per_page:
+                    logger.debug('Number of bars: {}'.format(
+                        len(extension_stats)))
                     plot = DirectoryBreakdownFigure(
                         extension_stats=extension_stats,
                         margin_width=max_length_of_leaf_directory_path,
-                        plot_height=num_subdirectories,
+                        plot_height=len(extension_stats),
                         color_map=color_wheel
                     )
                     plot.plot(save_to=report_filename_format.format(page_num),
@@ -219,13 +221,14 @@ class DirectorySummary(object):
                 i += 1
 
         if i <= max_stats_per_page:
+            logger.debug('Exporting final .pdf')
             plot = DirectoryBreakdownFigure(
                 extension_stats=extension_stats,
                 margin_width=max_length_of_leaf_directory_path,
                 plot_height=num_subdirectories,
                 color_map=color_wheel
             )
-            plot.plot(save_to=report_filename_format.format(page_num),
+            plot.plot(save_to=report_filename_format.format(page_num+1),
                       walked_directory=self.root)
 
 
@@ -244,6 +247,7 @@ class DirectoryBreakdownFigure(object):
         self.color_map = color_map
 
     def plot(self, save_to, walked_directory):
+        logger.debug('Creating page: {}'.format(save_to))
         verticle_space = int(self.plot_height/6)
         horizontal_space = int(self.margin_width/10) + 3
 
@@ -269,7 +273,6 @@ class DirectoryBreakdownFigure(object):
             # backgroundcolor=[next(self.background_color_wheel)
             #                  for _ in range(len(directory_labels))])
         right_y_axis.tick_params(axis='y', which='both', length=0)
-        right_y_axis.invert_yaxis()
         axes.set_xlim([0, 1])
         axes.set_ylim([0, self.plot_height])
         right_y_axis.set_ylim([0, self.plot_height])
@@ -285,6 +288,7 @@ class DirectoryBreakdownFigure(object):
         directory_labels = []
         y_val = 0
         right_y_axis = axes.twinx()
+        right_y_axis.invert_yaxis()
 
         for directory_stats in self.extension_stats:
             directory_labels.append(directory_stats.path)
