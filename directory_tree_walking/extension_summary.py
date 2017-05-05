@@ -208,7 +208,7 @@ class DirectorySummary(object):
                     plot = DirectoryBreakdownFigure(
                         extension_stats=extension_stats,
                         margin_width=max_length_of_leaf_directory_path,
-                        plot_height=len(extension_stats),
+                        plot_height=max_stats_per_page,
                         color_map=color_wheel
                     )
                     plot.plot(save_to=report_filename_format.format(page_num),
@@ -225,7 +225,7 @@ class DirectorySummary(object):
             plot = DirectoryBreakdownFigure(
                 extension_stats=extension_stats,
                 margin_width=max_length_of_leaf_directory_path,
-                plot_height=num_subdirectories,
+                plot_height=max_stats_per_page,
                 color_map=color_wheel
             )
             plot.plot(save_to=report_filename_format.format(page_num+1),
@@ -281,6 +281,12 @@ class DirectoryBreakdownFigure(object):
         # hide the tickmarks on the left y-axis
         axes.set_yticks([])
         axes.set_xticks([])
+
+        # make the border of the plots invisible
+        for side in ['top', 'right', 'bottom', 'left']:
+            axes.spines[side].set_visible(False)
+            right_y_axis.spines[side].set_visible(False)
+
         figure.suptitle('File Type Breakdown: {}'.format(directory))
         plt.tight_layout(pad=5.25)
 
