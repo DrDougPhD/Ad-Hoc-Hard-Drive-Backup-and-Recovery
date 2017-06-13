@@ -242,6 +242,7 @@ class DirectoryBreakdownFigure(object):
         self.color_map = color_map
 
     def plot(self, save_to, walked_directory):
+        logger.debug('Creating page: {}'.format(save_to))
         verticle_space = int(self.plot_height/6)
         horizontal_space = int(self.margin_width/10) + 3
 
