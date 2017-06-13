@@ -28,7 +28,7 @@ longest_count_number = len(str(most_frequent_file_type))
 
 for extension, occupied_size in file_type_sizes.items():
     count = file_type_counts[extension]    
-    print('{0}  {1}  {2: ^5}'.format(
+    print('{0}  {1}  {2: >5}'.format(
         extension.ljust(longest_extension_length),
         str(count).center(longest_count_number),
         humanfriendly.format_size(occupied_size)
