@@ -34,6 +34,8 @@ TODO
     target directory communicates with the walkers of the other directories.
 
 """
+import math
+
 from lib.lineheaderpadded import hr
 
 __appname__ = 'files_in_there_but_not_here'
@@ -54,9 +56,8 @@ logger = logging.getLogger(__name__)
 
 
 def main(args):
-    extensions_to_ignore = ['.au']
     summary = DirectorySummary(root=args.target)
-    summary.walk(ignore=extensions_to_ignore)
+    summary.walk()#valid_extensions=set(args.targeted_extensions))
     summary.print()
     summary.plot()
 
@@ -97,7 +98,7 @@ class DirectorySummary(object):
 
         return directory #os.path.abspath(directory)
 
-    def walk(self, ignore):
+    def walk(self, valid_extensions=None):
         for subdirectory, directory_names, files in os.walk(self.root):
 
             for filename in files:
@@ -108,8 +109,12 @@ class DirectorySummary(object):
                     continue
 
                 filename_prefix, extension = os.path.splitext(filename)
-                if extension in ignore:
+                if valid_extensions is not None and \
+                   extension not in valid_extensions:
                     continue
+
+                if extension == '':
+                    extension = '(none)'
 
                 file_size = os.path.getsize(file_path)
                 self.total_size += file_size
@@ -195,22 +200,38 @@ class DirectorySummary(object):
             max_length_of_leaf_directory_path))
 
         i = 0
-        max_stats_per_page = 200
+        max_stats_per_page = 125
         report_filename_format = 'extension_breakdown_p{:0>6}.pdf'
-        for ext, ext_stats_by_dominating_stats in dominating_extensions.items():
-            extension_stats = []
+        page_num = 0
+        extension_stats = []
+        report_pages = []
 
-            page_num = 0
+        logger.info('{} pages will be created'.format(
+            int(math.ceil(num_subdirectories/max_stats_per_page)+1)))
+
+        report_directory = 'report_pages'
+        os.makedirs(report_directory, exist_ok=True)
+
+        for ext, ext_stats_by_dominating_stats in dominating_extensions.items():
+
             for stats in ext_stats_by_dominating_stats:
                 if i == max_stats_per_page:
+                    logger.debug('Number of bars: {}'.format(
+                        len(extension_stats)))
                     plot = DirectoryBreakdownFigure(
                         extension_stats=extension_stats,
                         margin_width=max_length_of_leaf_directory_path,
-                        plot_height=num_subdirectories,
+                        plot_height=max_stats_per_page,
                         color_map=color_wheel
                     )
-                    plot.plot(save_to=report_filename_format.format(page_num),
+
+                    report_filename = os.path.join(
+                        report_directory,
+                        report_filename_format.format(page_num))
+                    plot.plot(save_to=report_filename,
                               walked_directory=self.root)
+
+                    report_pages.append(report_filename)
                     i = 0
                     page_num += 1
                     extension_stats = []
@@ -218,17 +239,37 @@ class DirectorySummary(object):
                 extension_stats.append(stats)
                 i += 1
 
-        if i <= max_stats_per_page:
+        if i <= max_stats_per_page and i > 0:
+            logger.debug('Exporting final pdf file')
             plot = DirectoryBreakdownFigure(
                 extension_stats=extension_stats,
                 margin_width=max_length_of_leaf_directory_path,
-                plot_height=num_subdirectories,
+                plot_height=max_stats_per_page,
                 color_map=color_wheel
             )
-            plot.plot(save_to=report_filename_format.format(page_num),
+
+            if page_num == 0:
+                page_num = 1
+
+            report_filename = report_filename_format.format(page_num)
+            plot.plot(save_to=report_filename,
                       walked_directory=self.root)
+            report_pages.append(report_filename)
+
+        from PyPDF2 import PdfFileMerger, PdfFileReader
+
+        merger = PdfFileMerger()
+        for filename in report_pages:
+            merger.append(PdfFileReader(open(filename, 'rb')))
+
+        merger.write(os.path.join(report_directory, 'filetype_breakdown.pdf'))
+
+        for filename in report_pages:
+            os.remove(filename)
 
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy
 class DirectoryBreakdownFigure(object):
@@ -257,6 +298,7 @@ class DirectoryBreakdownFigure(object):
         self.format_plot(figure, axes, directory_labels, right_y_axis,
                          walked_directory)
         plt.savefig(save_to)
+        plt.close()
 
     def format_plot(self, figure, axes, directory_labels, right_y_axis,
                     directory):
@@ -268,16 +310,22 @@ class DirectoryBreakdownFigure(object):
             # backgroundcolor=[next(self.background_color_wheel)
             #                  for _ in range(len(directory_labels))])
         right_y_axis.tick_params(axis='y', which='both', length=0)
-        right_y_axis.invert_yaxis()
         axes.set_xlim([0, 1])
         axes.set_ylim([0, self.plot_height])
         right_y_axis.set_ylim([0, self.plot_height])
-        axes.invert_xaxis()
+        #axes.invert_xaxis()
+        right_y_axis.invert_yaxis()
         # hide the tickmarks on the left y-axis
         axes.set_yticks([])
         axes.set_xticks([])
+
+        # make the border of the plots invisible
+        for side in ['top', 'right', 'bottom', 'left']:
+            axes.spines[side].set_visible(False)
+            right_y_axis.spines[side].set_visible(False)
+
         figure.suptitle('File Type Breakdown: {}'.format(directory))
-        plt.tight_layout(pad=5.25)
+        plt.tight_layout(pad=9.25)
 
     def construct_plot(self, axes):
         # create the bar for each directory
@@ -307,10 +355,11 @@ class DirectoryBreakdownFigure(object):
             for text_x, ext in annotations:
                 right_y_axis.text(
                     x=text_x,
-                    y=y_val + .27,
+                    y=y_val + .20,
                     s=ext,
                     fontsize=8,
-                    horizontalalignment='right')
+                    horizontalalignment='left',
+                    verticalalignment='top')
 
             y_val += 1
 
@@ -400,7 +449,7 @@ class DirectoryExtensionStats(object):
         ext_portion_pair = map(lambda x: (x, len(self.extension_stats[x])),
                                self.extension_stats.keys())
         ext_portion_pair = sorted(ext_portion_pair,
-                                  key=lambda x: x[1],
+                                  key=lambda x: (x[1], x[0]),
                                   reverse=True)
         sorted_extensions = collections.OrderedDict()
         for ext, portion in ext_portion_pair:
@@ -429,12 +478,18 @@ class CommandLineHorizontalPlot(object):
                                                       value_fmt_fn=value_fmt_fn)
         bottom_border = self.generate_horizontal_border(corner='└')
 
+        plot_content = [title, top_border]
+        plot_content.extend(plot_lines)
+        plot_content.append(bottom_border)
+        """
         plot_content = '\n'.join([
             title,
             top_border,
             *plot_lines,
             bottom_border,
         ]) + '\n'
+        """
+        plot_content = '\n'.join(plot_content)
         print(plot_content)
 
 
@@ -527,6 +582,9 @@ def get_arguments():
     parser.add_argument('-v', '--verbose', action='store_true',
                         default=__indev__,
                         help='Enable debugging messages (default: False)')
+    # parser.add_argument('targeted_extensions', metavar='.EXT', nargs='+',
+    #                     help='Extensions to focus on, ignoring all others')
+
     parser.add_argument('target', metavar='TARGET_DIR',
                         help='The target directory to search')
 
