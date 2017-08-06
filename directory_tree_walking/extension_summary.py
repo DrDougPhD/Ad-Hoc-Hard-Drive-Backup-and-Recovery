@@ -35,7 +35,7 @@ TODO
 
 """
 import math
-
+import humanize
 from lib.lineheaderpadded import hr
 
 __appname__ = 'files_in_there_but_not_here'
@@ -49,7 +49,6 @@ import sys
 import os
 import collections
 import logging
-import hurry.filesize as filesize
 import itertools
 
 logger = logging.getLogger(__name__)
@@ -99,6 +98,7 @@ class DirectorySummary(object):
         return directory #os.path.abspath(directory)
 
     def walk(self, valid_extensions):
+        logger.info('Walking through all files in "{}"'.format(self.root))
         for subdirectory, directory_names, files in os.walk(self.root):
 
             for filename in files:
@@ -145,7 +145,7 @@ class DirectorySummary(object):
             title='Space Allocation per Extension: {}'.format(self.root),
             max_value=self.total_size,
             aggregate_fn=sum,
-            value_fmt_fn=lambda x: filesize.size(x, system=filesize.si)
+            value_fmt_fn=lambda x: humanize.naturalsize(x, binary=True)
                                            .rjust(4))
         cli_plot.plot(
             title='File Counts per Extension: {}'.format(self.root),
@@ -180,16 +180,16 @@ class DirectorySummary(object):
                 stats.summary()
 
         # Print out summary of the walked directories
-        logger.debug(hr('Summary'))
+        logger.info(hr('Summary'))
 
         num_unique_extensions = len(self.file_type_sizes)
-        logger.debug('Number of unique extension: {}'.format(
+        logger.info('Number of unique extension: {}'.format(
             num_unique_extensions))
 
         colors = get_hex_colors(n=num_unique_extensions)
         color_wheel = itertools.cycle(colors)
         num_subdirectories = len(self.directory_based_file_types)
-        logger.debug('{0} subdirectories contained within {1}'.format(
+        logger.info('{0} subdirectories contained within {1}'.format(
             num_subdirectories, self.root
         ))
 
@@ -210,6 +210,10 @@ class DirectorySummary(object):
             int(math.ceil(num_subdirectories/max_stats_per_page)+1)))
 
         report_directory = 'report_pages'
+        file_extension_report_path = os.path.join(report_directory,
+                                                  'filetype_breakdown.pdf')
+        logger.info('File type report will be stored in "{}"'.format(
+            file_extension_report_path))
         os.makedirs(report_directory, exist_ok=True)
 
         for ext, ext_stats_by_dominating_stats in dominating_extensions.items():
@@ -240,7 +244,7 @@ class DirectorySummary(object):
                 i += 1
 
         if i <= max_stats_per_page and i > 0:
-            logger.debug('Exporting final pdf file')
+            logger.info('Exporting final pdf file')
             plot = DirectoryBreakdownFigure(
                 extension_stats=extension_stats,
                 margin_width=max_length_of_leaf_directory_path,
@@ -262,7 +266,8 @@ class DirectorySummary(object):
         for filename in report_pages:
             merger.append(PdfFileReader(open(filename, 'rb')))
 
-        merger.write(os.path.join(report_directory, 'filetype_breakdown.pdf'))
+
+        merger.write(file_extension_report_path)
 
         for filename in report_pages:
             os.remove(filename)
@@ -440,8 +445,8 @@ class DirectoryExtensionStats(object):
             logger.debug('│ {0: ^7} │ {1: ^7} │  {2: >4}  │'.format(
                 ext,
                 '{:.1%}'.format(portion),
-                filesize.size(sum(self.extension_stats[ext]),
-                              system=filesize.si)
+                humanize.naturalsize(sum(self.extension_stats[ext]),
+                                     binary=True)
             ))
         logger.debug('└─────────┴─────────┴────────┘')
 
@@ -567,7 +572,7 @@ def setup_logger(args):
         "%(levelname)s [%(filename)s:%(lineno)s - %(funcName)20s() ] "
         "%(message)s")
     fh.setFormatter(line_numbers_and_function_name)
-    ch.setFormatter(line_numbers_and_function_name)
+    # ch.setFormatter(line_numbers_and_function_name)
     # add the handlers to the logger
     logger.addHandler(fh)
     logger.addHandler(ch)
@@ -580,7 +585,7 @@ def get_arguments():
     # during development, I set default to False so I don't have to keep
     # calling this with -v
     parser.add_argument('-v', '--verbose', action='store_true',
-                        default=__indev__,
+                        default=False,
                         help='Enable debugging messages (default: False)')
     parser.add_argument('target', metavar='TARGET_DIR',
                         help='The target directory to search')
