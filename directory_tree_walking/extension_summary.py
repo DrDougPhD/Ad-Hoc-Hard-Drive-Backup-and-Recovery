@@ -57,7 +57,10 @@ logger = logging.getLogger(__name__)
 
 def main(args):
     summary = DirectorySummary(root=args.target)
-    summary.walk()#valid_extensions=set(args.targeted_extensions))
+    if args.targeted_extensions:
+        summary.walk(valid_extensions=tuple(args.targeted_extensions))
+    else:
+        summary.walk()
     summary.print()
     summary.plot()
 
@@ -72,10 +75,46 @@ def get_hex_colors(n):
     return colors
 
 
+class ExtensionSummaryInDirectory(object):
+    def __init__(self, root, directory, files, valid_extensions=None):
+        self.file_type_sizes = collections.defaultdict(list)
+        self.total_size = 0
+        self.num_files = 0
+        self.root = root
+        self.directory = directory
+        self.files = []
+
+        for filename in files:
+            file_path = os.path.join(directory, filename)
+
+            # Skip over symbolic links.
+            if os.path.islink(file_path):
+                continue
+
+            filename_prefix, extension = os.path.splitext(filename)
+            if valid_extensions is not None and \
+                            extension not in valid_extensions:
+                continue
+
+            self.files.append(filename)
+
+            if extension == '':
+                extension = '(none)'
+
+            file_size = os.path.getsize(file_path)
+            self.total_size += file_size
+            self.num_files += 1
+
+            self.file_type_sizes[extension].append(file_size)
+
+            parent_directory = os.path.dirname(file_path)
+
+
 class DirectorySummary(object):
     def __init__(self, root):
         # Assert existence of the directory and return its absolute path
         self.root = self._existing_directory(root)
+        self.directory_summaries = []
 
         self.file_type_sizes = collections.defaultdict(list)
         self.directory_based_file_types = collections.defaultdict(dict)
@@ -101,6 +140,16 @@ class DirectorySummary(object):
     def walk(self, valid_extensions=None):
         for subdirectory, directory_names, files in os.walk(self.root):
 
+            directory_summary = ExtensionSummaryInDirectory(
+                root=self.root,
+                directory=subdirectory,
+                files=files)
+            self.directory_summaries.append(directory_summary)
+            #self.total_size += directory_summary.occupied_space
+            #self.num_files += directory_summary.num_files
+            #self.update_parent_directories(directory_summary)
+
+
             for filename in files:
                 file_path = os.path.join(subdirectory, filename)
 
@@ -108,9 +157,9 @@ class DirectorySummary(object):
                 if os.path.islink(file_path):
                     continue
 
-                filename_prefix, extension = os.path.splitext(filename)
+                _, extension = os.path.splitext(filename.lower())
                 if valid_extensions is not None and \
-                   extension not in valid_extensions:
+                   not filename.lower().endswith(valid_extensions):
                     continue
 
                 if extension == '':
@@ -128,9 +177,12 @@ class DirectorySummary(object):
 
     def walk_path_to_root(self, extension, file_size, parent_directory):
         ignore_abs_path = len(os.path.dirname(self.root))+1
+        relative_parent_directory = parent_directory[ignore_abs_path:]
+
         while parent_directory != self.root:
+
             directory_summary = self.directory_based_file_types[
-                parent_directory[ignore_abs_path:]]
+                relative_parent_directory]
 
             if extension not in directory_summary:
                 directory_summary[extension] = []
@@ -138,6 +190,10 @@ class DirectorySummary(object):
             directory_summary[extension].append(file_size)
 
             parent_directory = os.path.dirname(parent_directory)
+
+    def update_parent_directories(self, directory_summary):
+        # TODO: integrate into script
+        pass
 
     def print(self):
         cli_plot = CommandLineHorizontalPlot(data=self.file_type_sizes)
@@ -412,20 +468,21 @@ class DirectoryExtensionStats(object):
 
     def _determine_dominating_ext(self, extension_stats):
         # determine the extension that dominates this path
-        ext = max(extension_stats.keys(),
-                  key=lambda k: len(extension_stats[k]))
-        count = len(extension_stats[ext])
-        space = sum(extension_stats[ext])
+        dominating_extension = max(extension_stats.keys(),
+                                   key=lambda k: len(extension_stats[k]))
+        count = len(extension_stats[dominating_extension])
+        space = sum(extension_stats[dominating_extension])
 
         # count the total number of files within this directory
         ext_count_pairs = map(lambda k: (k, len(extension_stats[k])),
                               extension_stats.keys())
-        self.num_files_within_dir = sum(map(lambda v: v[1],
-                                       ext_count_pairs))
+        self.total_count = sum(map(lambda v: v[1],
+                                   ext_count_pairs))
+
         # record the proportion of files within this directory that have the
         # dominating extension
-        proportion = count / self.num_files_within_dir
-        return ext, count, space, proportion
+        count_proportion = count / self.total_count
+        return dominating_extension, count, space, count_proportion
 
     def summary(self):
         # logger.debug('Dominated by: {0: >7} - {1: >6}, {2: >4}'.format(
@@ -449,11 +506,11 @@ class DirectoryExtensionStats(object):
         ext_portion_pair = map(lambda x: (x, len(self.extension_stats[x])),
                                self.extension_stats.keys())
         ext_portion_pair = sorted(ext_portion_pair,
-                                  key=lambda x: (x[1], x[0]),
+                                  key=lambda x: x[0],
                                   reverse=True)
         sorted_extensions = collections.OrderedDict()
         for ext, portion in ext_portion_pair:
-            sorted_extensions[ext] = portion/self.num_files_within_dir
+            sorted_extensions[ext] = portion/self.total_count
 
             self.sorted_extensions = sorted_extensions
 
@@ -545,7 +602,6 @@ class CommandLineHorizontalPlot(object):
         return padded_data_line
 
 
-
 def setup_logger(args):
     logger.setLevel(logging.DEBUG)
     # create file handler which logs even debug messages
@@ -582,11 +638,12 @@ def get_arguments():
     parser.add_argument('-v', '--verbose', action='store_true',
                         default=__indev__,
                         help='Enable debugging messages (default: False)')
-    # parser.add_argument('targeted_extensions', metavar='.EXT', nargs='+',
-    #                     help='Extensions to focus on, ignoring all others')
-
     parser.add_argument('target', metavar='TARGET_DIR',
                         help='The target directory to search')
+    parser.add_argument('-x', '--extensions', dest='targeted_extensions',
+                        metavar='.EXT', nargs='*',
+                        help='Extensions to focus on, ignoring all others. '
+                             'Make sure they are lower case!')
 
     args = parser.parse_args()
     return args
