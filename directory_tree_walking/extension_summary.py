@@ -58,7 +58,9 @@ def main(args):
     summary = DirectorySummary(root=args.target)
     summary.walk(valid_extensions=args.targeted_extensions)
     summary.print()
-    summary.plot()
+
+    if not args.skip_report:
+        summary.plot()
 
 
 def get_hex_colors(n):
@@ -587,6 +589,9 @@ def get_arguments():
     parser.add_argument('-v', '--verbose', action='store_true',
                         default=False,
                         help='Enable debugging messages (default: False)')
+    parser.add_argument('--skip-report', action='store_true',
+                        default=False,
+                        help='Skip creation of PDF report')
     parser.add_argument('target', metavar='TARGET_DIR',
                         help='The target directory to search')
     parser.add_argument('-x', '--extensions', dest='targeted_extensions',
