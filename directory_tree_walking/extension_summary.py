@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
 
 def main(args):
     summary = DirectorySummary(root=args.target)
-    summary.walk()#valid_extensions=set(args.targeted_extensions))
+    summary.walk(valid_extensions=args.targeted_extensions)
     summary.print()
     summary.plot()
 
@@ -98,7 +98,7 @@ class DirectorySummary(object):
 
         return directory #os.path.abspath(directory)
 
-    def walk(self, valid_extensions=None):
+    def walk(self, valid_extensions):
         for subdirectory, directory_names, files in os.walk(self.root):
 
             for filename in files:
@@ -110,7 +110,7 @@ class DirectorySummary(object):
 
                 filename_prefix, extension = os.path.splitext(filename)
                 if valid_extensions is not None and \
-                   extension not in valid_extensions:
+                   not filename.lower().endswith(tuple(valid_extensions)):
                     continue
 
                 if extension == '':
@@ -582,11 +582,12 @@ def get_arguments():
     parser.add_argument('-v', '--verbose', action='store_true',
                         default=__indev__,
                         help='Enable debugging messages (default: False)')
-    # parser.add_argument('targeted_extensions', metavar='.EXT', nargs='+',
-    #                     help='Extensions to focus on, ignoring all others')
-
     parser.add_argument('target', metavar='TARGET_DIR',
                         help='The target directory to search')
+    parser.add_argument('-x', '--extensions', dest='targeted_extensions',
+                        metavar='.EXT', nargs='*',
+                        help='Extensions to focus on, ignoring all others. '
+                             'Make sure they are lower case!')
 
     args = parser.parse_args()
     return args
