@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
 def main(args):
     summary = DirectorySummary(root=args.target)
     summary.walk(valid_extensions=args.targeted_extensions)
-    summary.print()
+    summary.print(to_file='extensions_summary.txt')
 
     if not args.skip_report:
         summary.plot()
@@ -141,18 +141,22 @@ class DirectorySummary(object):
 
             parent_directory = os.path.dirname(parent_directory)
 
-    def print(self):
+    def print(self, to_file=None):
         cli_plot = CommandLineHorizontalPlot(data=self.file_type_sizes)
         cli_plot.plot(
             title='Space Allocation per Extension: {}'.format(self.root),
             max_value=self.total_size,
             aggregate_fn=sum,
             value_fmt_fn=lambda x: humanize.naturalsize(x, binary=True)
-                                           .rjust(4))
+                                           .rjust(4),
+            to_file=to_file
+        )
         cli_plot.plot(
             title='File Counts per Extension: {}'.format(self.root),
             max_value= self.num_files,
-            aggregate_fn=len)
+            aggregate_fn=len,
+            to_file=to_file
+        )
 
 
     def plot(self):
@@ -473,7 +477,8 @@ class CommandLineHorizontalPlot(object):
         self.data = data
         self.max_key_length = len(max(data.keys(), key=len))
 
-    def plot(self, max_value, title, aggregate_fn, value_fmt_fn=None):
+    def plot(self, max_value, title, aggregate_fn, value_fmt_fn=None,
+             to_file=None):
         if value_fmt_fn is None:
             value_fmt_fn = lambda x: x
 
@@ -498,6 +503,11 @@ class CommandLineHorizontalPlot(object):
         """
         plot_content = '\n'.join(plot_content)
         print(plot_content)
+
+        if to_file:
+            with open(to_file, 'a') as f:
+                f.write(plot_content)
+                f.write('\n')
 
 
     def generate_title(self, title):
