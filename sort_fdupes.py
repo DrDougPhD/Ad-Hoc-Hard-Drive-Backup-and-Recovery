@@ -4,7 +4,7 @@ import humanize
 import linecache
 import termcolor
 
-minimum_file_savings = 1000000000
+minimum_file_savings = 1
 
 def main(fdupes_log_path):
     fdupes_log = open(fdupes_log_path, 'rb')
@@ -33,7 +33,7 @@ def print_sorted(duplicates, fdupes_log_path):
     with open(fdupes_log_path, 'rb') as f:
         fdupes_log_lines = f.readlines()
 
-    duplicates.sort(key=lambda x: x[1], reverse=True)
+    duplicates.sort(key=lambda x: x[1])
     for size, savings, log_file_indices in duplicates:
         human_size = humanize.naturalsize(size, binary=True)
         human_savings = humanize.naturalsize(savings, binary=True)
